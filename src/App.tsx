@@ -1261,12 +1261,12 @@ function DashboardView({
                             <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
                               {student.phoneNumber ? (
                                 <a href={`tel:${student.phoneNumber}`} className="text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                  📞 {student.phoneNumber}
+                                  <Smartphone size={12} /> {student.phoneNumber}
                                 </a>
                               ) : (
-                                <span>📞 គ្មានលេខ</span>
+                                <span className="flex items-center gap-1"><Smartphone size={12} /> គ្មានលេខ</span>
                               )}
-                              <span>🏫 ថ្នាក់: {studentClass?.name || 'គ្មានថ្នាក់'}</span>
+                              <span className="flex items-center gap-1"><LayoutList size={12} /> ថ្នាក់: {studentClass?.name || 'គ្មានថ្នាក់'}</span>
                             </div>
                           </div>
                         </div>
@@ -1788,6 +1788,7 @@ function StaffAttendanceView({
                       selectedColor="bg-blue-600 text-white" 
                       baseColor="bg-slate-100 text-slate-600"
                       onClick={() => handleAttendanceAction(staff.id, 'mIn')}
+                      icon={!!data.mIn ? <CheckCircle2 size={14} /> : <LogIn size={14} />}
                     >
                       <div className="flex flex-col items-center py-0.5 relative group">
                         <span className="text-xs">{data.mIn || 'ចូលព្រឹក'}</span>
@@ -1805,6 +1806,7 @@ function StaffAttendanceView({
                       selectedColor="bg-blue-600 text-white" 
                       baseColor="bg-slate-100 text-slate-600"
                       onClick={() => handleAttendanceAction(staff.id, 'mOut')}
+                      icon={!!data.mOut ? <CheckCircle2 size={14} /> : <LogOut size={14} />}
                     >
                       <div className="flex flex-col items-center py-0.5 relative">
                         <span className="text-xs">{data.mOut || 'ចេញព្រឹក'}</span>
@@ -1822,6 +1824,7 @@ function StaffAttendanceView({
                       selectedColor="bg-blue-600 text-white" 
                       baseColor="bg-slate-100 text-slate-600"
                       onClick={() => handleAttendanceAction(staff.id, 'aIn')}
+                      icon={!!data.aIn ? <CheckCircle2 size={14} /> : <LogIn size={14} />}
                     >
                       <div className="flex flex-col items-center py-0.5 relative">
                         <span className="text-xs">{data.aIn || 'ចូលល្ងាច'}</span>
@@ -1839,6 +1842,7 @@ function StaffAttendanceView({
                       selectedColor="bg-blue-600 text-white" 
                       baseColor="bg-slate-100 text-slate-600"
                       onClick={() => handleAttendanceAction(staff.id, 'aOut')}
+                      icon={!!data.aOut ? <CheckCircle2 size={14} /> : <LogOut size={14} />}
                     >
                       <div className="flex flex-col items-center py-0.5 relative">
                         <span className="text-xs">{data.aOut || 'ចេញល្ងាច'}</span>
@@ -2166,40 +2170,44 @@ function AttendanceView({
                                     <td className="px-4 py-3">
                                     <div className="flex items-center justify-end gap-1.5 w-full">
                                         <StatusButton 
-                                        active={status === 'present'} 
-                                        disabled={!isToday}
-                                        selectedColor="bg-emerald-500 hover:bg-emerald-600 text-white" 
-                                        baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                        onClick={() => handleStatusChange(student.id, 'present')}
+                                          active={status === 'present'} 
+                                          disabled={!isToday}
+                                          selectedColor="bg-emerald-500 hover:bg-emerald-600 text-white" 
+                                          baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                          onClick={() => handleStatusChange(student.id, 'present')}
+                                          icon={<CheckCircle2 size={14} />}
                                         >
-                                        វត្តមាន
+                                          វត្តមាន
                                         </StatusButton>
                                         <StatusButton 
-                                        active={status === 'absent'} 
-                                        disabled={!isToday}
-                                        selectedColor="bg-rose-500 hover:bg-rose-600 text-white" 
-                                        baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                        onClick={() => handleStatusChange(student.id, 'absent')}
+                                          active={status === 'absent'} 
+                                          disabled={!isToday}
+                                          selectedColor="bg-rose-500 hover:bg-rose-600 text-white" 
+                                          baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                          onClick={() => handleStatusChange(student.id, 'absent')}
+                                          icon={<XCircle size={14} />}
                                         >
-                                        អវត្តមាន
+                                          អវត្តមាន
                                         </StatusButton>
                                         <StatusButton 
-                                        active={status === 'late'} 
-                                        disabled={!isToday}
-                                        selectedColor="bg-amber-500 hover:bg-amber-600 text-white" 
-                                        baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                        onClick={() => handleStatusChange(student.id, 'late')}
+                                          active={status === 'late'} 
+                                          disabled={!isToday}
+                                          selectedColor="bg-amber-500 hover:bg-amber-600 text-white" 
+                                          baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                          onClick={() => handleStatusChange(student.id, 'late')}
+                                          icon={<Clock size={14} />}
                                         >
-                                        យឺត
+                                          យឺត
                                         </StatusButton>
                                         <StatusButton 
-                                        active={status === 'excused'} 
-                                        disabled={!isToday}
-                                        selectedColor="bg-blue-500 hover:bg-blue-600 text-white" 
-                                        baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                        onClick={() => handleStatusChange(student.id, 'excused')}
+                                          active={status === 'excused'} 
+                                          disabled={!isToday}
+                                          selectedColor="bg-blue-500 hover:bg-blue-600 text-white" 
+                                          baseColor="bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                          onClick={() => handleStatusChange(student.id, 'excused')}
+                                          icon={<FileText size={14} />}
                                         >
-                                        ច្បាប់
+                                          ច្បាប់
                                         </StatusButton>
                                     </div>
                                     </td>
@@ -2323,7 +2331,9 @@ function DateRangeModal({
               const dd = String(now.getDate()).padStart(2, '0');
               const todayStr = `${yyyy}-${mm}-${dd}`;
               setStartDate(todayStr); setEndDate(todayStr);                
-            }} className="py-3 bg-slate-50 rounded-2xl text-xs font-black text-slate-600 hover:bg-slate-100 transition-all active:scale-95 border-b-2 border-slate-200">ថ្ងៃនេះ</button>
+            }} className="py-3 bg-slate-50 rounded-2xl text-xs font-black text-slate-600 hover:bg-slate-100 transition-all active:scale-95 border-b-2 border-slate-200 flex items-center justify-center gap-2">
+              <CalendarIcon size={14} /> ថ្ងៃនេះ
+            </button>
             <button onClick={() => {
               const now = new Date();
               const yyyy = now.getFullYear();
@@ -2332,7 +2342,9 @@ function DateRangeModal({
               const dd = String(now.getDate()).padStart(2, '0');
               const todayStr = `${yyyy}-${mm}-${dd}`;
               setStartDate(startOfMonthStr); setEndDate(todayStr);
-            }} className="py-3 bg-slate-50 rounded-2xl text-xs font-black text-slate-600 hover:bg-slate-100 transition-all active:scale-95 border-b-2 border-slate-200">ខែនេះ</button>
+            }} className="py-3 bg-slate-50 rounded-2xl text-xs font-black text-slate-600 hover:bg-slate-100 transition-all active:scale-95 border-b-2 border-slate-200 flex items-center justify-center gap-2">
+              <CalendarCheck size={14} /> ខែនេះ
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -2488,17 +2500,18 @@ function StatCard({ label, value, total, color, icon }: { label: string; value: 
 }
 
 // --- Helper Status Button ---
-function StatusButton({ active, selectedColor, baseColor, onClick, children, disabled }: { active: boolean; selectedColor: string; baseColor: string; onClick: () => void; children: React.ReactNode, disabled?: boolean }) {
+function StatusButton({ active, selectedColor, baseColor, onClick, children, disabled, icon }: { active: boolean; selectedColor: string; baseColor: string; onClick: () => void; children: React.ReactNode, disabled?: boolean, icon?: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all shadow-sm ${
+      className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5 ${
         active 
           ? `${selectedColor} shadow-md scale-105 z-10 font-bold` 
           : `${baseColor} opacity-70 hover:opacity-100 hover:scale-[1.02]`
-      } ${disabled ? 'cursor-not-allowed' : ''} flex-1 text-center whitespace-nowrap`}
+      } ${disabled ? 'cursor-not-allowed opacity-50' : ''} flex-1 text-center whitespace-nowrap`}
     >
+      {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </button>
   );
@@ -3289,7 +3302,7 @@ function StaffsView({
                       </span>
                       {staff.phoneNumber && (
                         <a href={`tel:${staff.phoneNumber}`} className="text-blue-600 hover:text-blue-700 hover:underline text-xs flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          📞 {staff.phoneNumber}
+                          <Smartphone size={12} /> {staff.phoneNumber}
                         </a>
                       )}
                     </div>
