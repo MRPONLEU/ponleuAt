@@ -3429,8 +3429,11 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
   const [isLocationExpanded, setIsLocationExpanded] = useState(false);
   const [isAntiFraudExpanded, setIsAntiFraudExpanded] = useState(false);
 
-  const saveSettings = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     let trimmedToken = botToken.trim();
     
     // Remove "bot" prefix if user accidentally included it
@@ -3438,16 +3441,23 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
       trimmedToken = trimmedToken.substring(3);
     }
     
-    firebaseService.saveSettings({
-      telegramBotToken: trimmedToken,
-      telegramChatId: chatId.trim(),
-      schoolLatitude: lat ? parseFloat(lat) : undefined,
-      schoolLongitude: lng ? parseFloat(lng) : undefined,
-      allowedRadius: radius ? parseInt(radius) : undefined,
-      requirePhoto,
-      enableDeviceBinding
-    });
-    showToast('រក្សាទុកបានជោគជ័យ!', 'success');
+    try {
+      await firebaseService.saveSettings({
+        telegramBotToken: trimmedToken,
+        telegramChatId: chatId.trim(),
+        schoolLatitude: lat ? parseFloat(lat) : undefined,
+        schoolLongitude: lng ? parseFloat(lng) : undefined,
+        allowedRadius: radius ? parseInt(radius) : undefined,
+        requirePhoto,
+        enableDeviceBinding
+      });
+      showToast('រក្សាទុកបានជោគជ័យ!', 'success');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      showToast('បរាជ័យក្នុងការរក្សាទុកទិន្នន័យ', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getCurrentLocation = () => {
@@ -3770,10 +3780,15 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
             <div className="pt-4 border-t border-slate-100 flex justify-end">
               <button 
                 type="submit" 
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl transition-all font-bold shadow-md shadow-blue-100 flex items-center justify-center gap-2"
+                disabled={isSaving}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl transition-all font-bold shadow-md shadow-blue-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <CheckCircle2 size={18} />
-                រក្សាទុកការកំណត់
+                {isSaving ? (
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  <CheckCircle2 size={18} />
+                )}
+                <span>រក្សាទុកការកំណត់</span>
               </button>
             </div>
           </form>
