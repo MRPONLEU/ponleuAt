@@ -477,6 +477,11 @@ export default function App() {
     if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return classes;
     return classes.filter(c => c.teacherId === currentUser?.staffId);
   }, [classes, currentUser]);
+
+  const filteredStudents = useMemo(() => {
+    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return students;
+    return students.filter(s => filteredClasses.some(c => c.id === s.classId));
+  }, [students, filteredClasses, currentUser]);
   
   const [selectedClassId, setSelectedClassId] = useState<string>(filteredClasses[0]?.id || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -853,7 +858,7 @@ export default function App() {
           <div className="max-w-4xl mx-auto w-full">
             {activeTab === 'dashboard' && (
               <DashboardView
-                students={students}
+                students={filteredStudents}
                 classes={filteredClasses}
                 attendance={attendance}
               />
@@ -861,7 +866,7 @@ export default function App() {
 
             {activeTab === 'attendance' && (
               <AttendanceView 
-                students={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? students : students.filter(s => filteredClasses.some(c => c.id === s.classId))}
+                students={filteredStudents}
                 classes={filteredClasses}
                 staffs={staffs}
                 attendance={attendance} 
@@ -961,7 +966,7 @@ export default function App() {
 
             {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'report' && (
               <ReportView 
-                students={students} 
+                students={filteredStudents} 
                 classes={filteredClasses}
                 selectedClassId={selectedClassId}
                 setSelectedClassId={setSelectedClassId}
