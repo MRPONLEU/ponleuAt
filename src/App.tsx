@@ -1344,11 +1344,23 @@ function StaffAttendanceView({
     safeJSONParse(localStorage.getItem('attendance_last_staff_report_ids'), {})
   );
 
+  // Optimistic updates for attendance
+  const [optimisticAttendance, setOptimisticAttendance] = useState<Record<string, StaffAttendanceData>>({});
+
   // Determine if we should show personal view (cards) or admin view (list)
-  // We show personal view if we only have one staff in the list (which happens in personal tab for non-admins)
   const isPersonalView = staffs.length === 1 && staffs[0].id === currentUser?.staffId;
   const personalStaff = isPersonalView ? staffs[0] : null;
-  const dayRecord = staffAttendance[currentDateStr] || {};
+  
+  // Merge prop state with optimistic updates
+  const dayRecord = useMemo(() => {
+    const fromProp = staffAttendance[currentDateStr] || {};
+    return { ...fromProp, ...optimisticAttendance };
+  }, [staffAttendance, currentDateStr, optimisticAttendance]);
+
+  // Clear optimistic updates when prop changes significantly or when we sync
+  useEffect(() => {
+    setOptimisticAttendance({}); // Reset on date change
+  }, [currentDateStr]);
 
   useEffect(() => {
     localStorage.setItem('attendance_last_staff_report_ids', JSON.stringify(lastStaffReportMessageIds));
@@ -1379,8 +1391,7 @@ function StaffAttendanceView({
     }
 
     // Check if it's a deletion
-    const currentDayRecord = staffAttendance[currentDateStr] || {};
-    const currentStaffRecord = currentDayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const isDelete = !!currentStaffRecord[field];
 
     // Geolocation check
@@ -1419,8 +1430,7 @@ function StaffAttendanceView({
   };
 
   const checkCameraRequirement = (staffId: string, field: keyof StaffAttendanceData) => {
-    const currentDayRecord = staffAttendance[currentDateStr] || {};
-    const currentStaffRecord = currentDayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const isAlreadySet = !!currentStaffRecord[field];
 
     if (settings.requirePhoto && !isAlreadySet) {
@@ -1440,8 +1450,7 @@ function StaffAttendanceView({
   };
 
   const proceedWithAction = (staffId: string, field: keyof StaffAttendanceData) => {
-    const currentDayRecord = staffAttendance[currentDateStr] || {};
-    const currentStaffRecord = currentDayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const isCurrentlySet = !!currentStaffRecord[field];
 
     if (isCurrentlySet) {
@@ -1489,8 +1498,7 @@ function StaffAttendanceView({
       hour12: true 
     });
 
-    const currentDayData = staffAttendance[currentDateStr] || {};
-    const currentStaffRecord = currentDayData[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     
     const newStaffRecord = { ...currentStaffRecord } as any;
     if (isDelete) {
@@ -1509,26 +1517,33 @@ function StaffAttendanceView({
       }
     }
 
-    const newDayData = {
-      ...currentDayData,
-      [staffId]: newStaffRecord
-    };
-
-    // Immediate local state update for feedback
-    setStaffAttendance(prev => ({
+    // Update local optimistic state
+    setOptimisticAttendance(prev => ({
       ...prev,
-      [currentDateStr]: {
-        ...prev[currentDateStr],
-        [staffId]: newStaffRecord
-      }
+      [staffId]: newStaffRecord
     }));
 
-    firebaseService.saveStaffAttendance(currentDateStr, staffId, newStaffRecord);
+    // Save to Firebase
+    firebaseService.saveStaffAttendance(currentDateStr, staffId, newStaffRecord).then(() => {
+      // Also update parent state to stay in sync
+      if (currentDateStr === currentDateStr) { // Still on same date
+        setStaffAttendance(prev => ({
+          ...prev,
+          [currentDateStr]: {
+            ...(prev[currentDateStr] || {}),
+            [staffId]: newStaffRecord
+          }
+        }));
+      }
+    }).catch(err => {
+      console.error("Firebase save error:", err);
+      showToast("បរាជ័យក្នុងការរក្សាទុកទៅកាន់ Server", "error");
+    });
     
     if (!isDelete) {
       const staffRef = staffs.find(s => s.id === staffId);
       const getStatusLabelLocal = (f: keyof StaffAttendanceData) => {
-        const time = newDayData[staffId][f] as string | null;
+        const time = newStaffRecord[f] as string | null;
         if (!time || typeof time === 'boolean') return "---";
         const limit = staffRef?.[`${f}Time` as keyof Staff] as string | undefined;
         const label = getAttendanceLabel(time, limit, f);
