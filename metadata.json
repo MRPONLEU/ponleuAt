@@ -1,0 +1,6 @@
+{
+  "name": "SmartSchool Attendance System",
+  "description": "A comprehensive student and staff attendance management system with Telegram bot integration for real-time notifications.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

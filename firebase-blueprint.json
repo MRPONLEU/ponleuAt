@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "AppUser": {
+      "title": "Application User",
+      "description": "User account for the application.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "username": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "role": { "type": "string", "enum": ["master_admin", "admin", "user"] },
+        "isConfirmed": { "type": "boolean" }
+      },
+      "required": ["id", "username", "passwordHash", "role", "isConfirmed"]
+    },
+    "Staff": {
+      "title": "Staff Member",
+      "description": "Information about a staff member.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameKhmer": { "type": "string" },
+        "nameLatin": { "type": "string" },
+        "gender": { "type": "string", "enum": ["M", "F"] },
+        "phoneNumber": { "type": "string" },
+        "mInTime": { "type": "string" },
+        "mOutTime": { "type": "string" },
+        "aInTime": { "type": "string" },
+        "aOutTime": { "type": "string" },
+        "deviceId": { "type": "string" }
+      },
+      "required": ["id", "nameKhmer"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Information about a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameKhmer": { "type": "string" },
+        "nameLatin": { "type": "string" },
+        "gender": { "type": "string", "enum": ["M", "F"] },
+        "dateOfBirth": { "type": "string" },
+        "address": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "classId": { "type": "string" }
+      },
+      "required": ["id", "nameKhmer", "classId"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "Information about a class.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "studyTime": { "type": "string" },
+        "teacherId": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "AttendanceRecord": {
+      "title": "Student Attendance Record",
+      "description": "A single student's attendance for a day.",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["present", "absent", "late", "excused", "none"] }
+      },
+      "required": ["status"]
+    },
+    "StaffAttendanceData": {
+      "title": "Staff Attendance Data",
+      "description": "A staff member's attendance times for a day.",
+      "type": "object",
+      "properties": {
+        "mIn": { "type": ["string", "null"] },
+        "mOut": { "type": ["string", "null"] },
+        "aIn": { "type": ["string", "null"] },
+        "aOut": { "type": ["string", "null"] },
+        "mInPhoto": { "type": "boolean" },
+        "mOutPhoto": { "type": "boolean" },
+        "aInPhoto": { "type": "boolean" },
+        "aOutPhoto": { "type": "boolean" }
+      }
+    },
+    "AppSettings": {
+      "title": "Application Settings",
+      "description": "Global settings for the application.",
+      "type": "object",
+      "properties": {
+        "telegramBotToken": { "type": "string" },
+        "telegramChatId": { "type": "string" },
+        "schoolLatitude": { "type": "number" },
+        "schoolLongitude": { "type": "number" },
+        "allowedRadius": { "type": "number" },
+        "requirePhoto": { "type": "boolean" },
+        "enableDeviceBinding": { "type": "boolean" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "AppUser",
+      "description": "Collection of application users."
+    },
+    "staff/{staffId}": {
+      "schema": "Staff",
+      "description": "Collection of staff members."
+    },
+    "students/{studentId}": {
+      "schema": "Student",
+      "description": "Collection of students."
+    },
+    "classes/{classId}": {
+      "schema": "Class",
+      "description": "Collection of classes."
+    },
+    "attendance/{date}/records/{studentId}": {
+      "schema": "AttendanceRecord",
+      "description": "Daily attendance records for students."
+    },
+    "staffAttendance/{date}/records/{staffId}": {
+      "schema": "StaffAttendanceData",
+      "description": "Daily attendance records for staff."
+    },
+    "settings/global": {
+      "schema": "AppSettings",
+      "description": "Global application settings."
+    }
+  }
+}

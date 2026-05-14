@@ -1,0 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Battambang:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Battambang", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
