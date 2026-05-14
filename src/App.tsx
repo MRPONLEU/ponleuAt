@@ -143,8 +143,28 @@ function AttendanceCamera({ onCapture, onCancel }: { onCapture: (base64: string)
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (context) {
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        
+        // Calculate dimensions to maintain aspect ratio with max 800px
+        const maxDim = 800;
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        
+        if (width > height) {
+          if (width > maxDim) {
+            height *= maxDim / width;
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width *= maxDim / height;
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
         
         // Visual shutter effect
         const shutter = document.createElement('div');
@@ -160,8 +180,8 @@ function AttendanceCamera({ onCapture, onCancel }: { onCapture: (base64: string)
           setTimeout(() => shutter.remove(), 200);
         }, 50);
 
-        context.drawImage(videoRef.current, 0, 0);
-        const data = canvasRef.current.toDataURL('image/jpeg', 0.8); // Higher quality
+        context.drawImage(video, 0, 0, width, height);
+        const data = canvas.toDataURL('image/jpeg', 0.7); // Slightly lower quality for size
         onCapture(data);
       }
     }
@@ -362,14 +382,18 @@ export default function App() {
   }, [isFirebaseLoaded, users.length]);
 
   const sendTelegramMessage = async (message: string) => {
-    if (!settings.telegramBotToken || !settings.telegramChatId) return null;
+    const botToken = settings.telegramBotToken?.trim();
+    const chatId = settings.telegramChatId?.trim();
+    
+    if (!botToken || !chatId) return { ok: false, description: 'Telegram Bot Token or Chat ID is missing' };
+    
     try {
       const response = await fetch('/api/telegram/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: settings.telegramBotToken,
-          chat_id: settings.telegramChatId,
+          token: botToken,
+          chat_id: chatId,
           text: message,
           parse_mode: 'HTML'
         })
@@ -398,36 +422,49 @@ export default function App() {
   };
 
   const sendTelegramPhoto = async (photoBase64: string, caption: string) => {
-    if (!settings.telegramBotToken || !settings.telegramChatId) return null;
+    const botToken = settings.telegramBotToken?.trim();
+    const chatId = settings.telegramChatId?.trim();
+
+    if (!botToken || !chatId) return { ok: false, description: 'Telegram Bot Token or Chat ID is missing' };
+    
     try {
       const response = await fetch('/api/telegram/sendPhoto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: settings.telegramBotToken,
-          chat_id: settings.telegramChatId,
+          token: botToken,
+          chat_id: chatId,
           photo: photoBase64,
           caption: caption,
           parse_mode: 'HTML'
         })
       });
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        data = { ok: false, description: text.includes('<!DOCTYPE html>') ? 'Backend Server not found' : 'Invalid Server Response' };
+      }
       return data;
     } catch (error) {
       console.error('Error sending Telegram photo:', error);
-      return null;
+      return { ok: false, description: 'Network error' };
     }
   };
 
   const deleteTelegramMessage = async (message_id: number) => {
-    if (!settings.telegramBotToken || !settings.telegramChatId) return;
+    const botToken = settings.telegramBotToken?.trim();
+    const chatId = settings.telegramChatId?.trim();
+    if (!botToken || !chatId) return;
     try {
       await fetch('/api/telegram/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: settings.telegramBotToken,
-          chat_id: settings.telegramChatId,
+          token: botToken,
+          chat_id: chatId,
           message_id
         })
       });
