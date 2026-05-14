@@ -1511,7 +1511,8 @@ function StaffAttendanceView({
     }));
 
     // Save to Firebase
-    firebaseService.saveStaffAttendance(currentDateStr, staffId, newStaffRecord).then(() => {
+    const cleanData = JSON.parse(JSON.stringify(newStaffRecord)); // Remove undefineds
+    firebaseService.saveStaffAttendance(currentDateStr, staffId, cleanData).then(() => {
       // Also update parent state to stay in sync
       if (currentDateStr === currentDateStr) { // Still on same date
         setStaffAttendance(prev => ({
@@ -3226,10 +3227,17 @@ function StaffsView({
     setDeleteInfo({
       isOpen: true,
       message: `តើអ្នកប្រាកដជាចង់ Reset ឧបករណ៍សម្រាប់បុគ្គលិក "${staff.nameKhmer}" មែនទេ? វានឹងអនុញ្ញាតឱ្យគាត់ចុះវត្តមានពីឧបករណ៍ថ្មីបាន។`,
-      onConfirm: () => {
-        const { deviceId, ...staffWithoutDevice } = staff;
-        firebaseService.saveStaff(staffWithoutDevice);
-        showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
+      onConfirm: async () => {
+        try {
+          const { deviceId, ...staffWithoutDevice } = staff;
+          // Optimistic update
+          setStaffs(prev => prev.map(s => s.id === staff.id ? staffWithoutDevice : s));
+          
+          await firebaseService.saveStaff(staffWithoutDevice);
+          showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
+        } catch (error) {
+          showToast('បរាជ័យក្នុងការ Reset ឧបករណ៍', 'error');
+        }
       }
     });
   };
@@ -4153,10 +4161,17 @@ function UserManagementView({
     setDeleteInfo({
       isOpen: true,
       message: `តើអ្នកប្រាកដជាចង់ Reset ឧបករណ៍សម្រាប់បុគ្គលិក "${staff.nameKhmer}" មែនទេ?`,
-      onConfirm: () => {
-        const { deviceId, ...staffWithoutDevice } = staff;
-        firebaseService.saveStaff(staffWithoutDevice);
-        showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
+      onConfirm: async () => {
+        try {
+          const { deviceId, ...staffWithoutDevice } = staff;
+          // Optimistic update
+          setStaffs(prev => prev.map(s => s.id === staff.id ? staffWithoutDevice : s));
+          
+          await firebaseService.saveStaff(staffWithoutDevice);
+          showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
+        } catch (error) {
+          showToast('បរាជ័យក្នុងការ Reset ឧបករណ៍', 'error');
+        }
       }
     });
   };

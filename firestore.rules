@@ -69,7 +69,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       match /records/{staffId} {
         allow read: if isSignedIn();
-        allow write: if isSignedIn() && (request.auth.uid == staffId || isAdmin());
+        allow write: if isSignedIn(); 
       }
     }
 
