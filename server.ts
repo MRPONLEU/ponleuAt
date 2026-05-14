@@ -4,16 +4,21 @@ import { createServer as createViteServer } from "vite";
 import axios from "axios";
 import FormData from "form-data";
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = 3000;
 
+async function startServer() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Server is running" });
+  });
+
+  // Ping for diagnostics
+  app.get("/api/ping", (req, res) => {
+    res.json({ ok: true, message: "pong", timestamp: new Date().toISOString() });
   });
 
   // Telegram Proxy API
@@ -108,6 +113,12 @@ async function startServer() {
     }
   });
 
+  // 404 handler for API routes - must be before SPA fallback
+  app.all("/api/*", (req, res) => {
+    console.log(`404 for API route: ${req.method} ${req.url}`);
+    res.status(404).json({ ok: false, description: `API route ${req.method} ${req.url} not found` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -123,9 +134,14 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only listen if not in a serverless environment (like Vercel)
+  if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;

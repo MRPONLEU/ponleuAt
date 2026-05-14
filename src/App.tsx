@@ -374,7 +374,16 @@ export default function App() {
           parse_mode: 'HTML'
         })
       });
-      const data = await response.json().catch(() => ({ ok: false, description: 'Invalid JSON response' }));
+      
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        data = { ok: false, description: text.includes('<!DOCTYPE html>') ? 'Backend Server not found' : 'Invalid Server Response' };
+      }
+
       if (!data.ok) {
         console.error('Telegram API Error:', data.description);
         return data;
@@ -384,7 +393,7 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error sending Telegram message:', error);
-      return null;
+      return { ok: false, description: 'Network error' };
     }
   };
 
@@ -3447,7 +3456,21 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
         })
       });
 
-      const data = await response.json().catch(() => ({ ok: false, description: 'Invalid JSON response from server' }));
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Server returned non-JSON response:', text);
+        data = { 
+          ok: false, 
+          description: text.includes('<!DOCTYPE html>') 
+            ? 'Backend Server not found (404 HTML). Please ensure you are running the custom Express server.' 
+            : 'Invalid JSON response from server' 
+        };
+      }
+      
       console.log('Test Connection Result:', data);
 
       if (data.ok) {
@@ -3460,6 +3483,8 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
           helpTip = '\n\n💡 បញ្ជាក់៖\n- ប្រសិនបើជា Group៖ សូមបន្ថែម Bot ចូលក្នុង Group ហើយផ្ដល់សិទ្ធិជា Admin។';
         } else if (desc.includes('unauthorized')) {
           helpTip = '\n\n💡 បញ្ជាក់៖ Bot Token មិនត្រឹមត្រូវទេ។';
+        } else if (desc.includes('backend server not found')) {
+          helpTip = '\n\n💡 ដំណោះស្រាយ៖\n- ប្រសិនបើអ្នកនៅ Vercel៖ កម្មវិធីនេះត្រូវការ Backend Server (Express) ដើម្បីដំណើរការ។';
         }
         
         showToast(`❌ ការតភ្ជាប់បរាជ័យ: ${data.description || 'Unknown error'}${helpTip}`, 'error');
