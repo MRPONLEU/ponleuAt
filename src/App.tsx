@@ -1537,6 +1537,7 @@ function StaffAttendanceView({
       const prevMsgId = lastStaffReportMessageIds[reportKey];
       
       const onMessageSent = (response: any) => {
+        console.log('Telegram report response:', response);
         if (response && response.ok && response.result?.message_id) {
           if (prevMsgId) {
             deleteTelegramMessage(prevMsgId);
@@ -1547,9 +1548,16 @@ function StaffAttendanceView({
           }));
           showToast('បានផ្ញើរបាយការណ៍ទៅ Telegram រួចរាល់!', 'success');
         } else {
-          console.error('Telegram Send Error:', response);
-          const detail = response?.description || 'Unknown Telegram Error';
-          showToast(`⚠️ មិនអាចផ្ញើរូបភាពទៅ Telegram: ${detail}`, 'error');
+          console.error('Telegram Send Error Detail:', response);
+          let detail = 'Unknown Telegram Error';
+          if (response) {
+            if (response.description) detail = response.description;
+            else if (response.error) detail = response.error;
+            else if (response.message) detail = response.message;
+            else if (typeof response === 'string') detail = response;
+            else if (response.ok === true && !response.result?.message_id) detail = 'Sent successfully but message ID is missing in response';
+          }
+          showToast(`⚠️ មិនអាចផ្ញើទៅ Telegram: ${detail}`, 'error');
         }
       };
 
