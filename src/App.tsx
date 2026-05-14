@@ -1334,13 +1334,7 @@ function StaffAttendanceView({
   showToast: (message: string, type: Toast['type']) => void;
 }) {
 
-  const dayRecord = staffAttendance[currentDateStr] || {};
-  const isPersonal = currentUser?.role === 'user';
   const isToday = currentDateStr === getTodayStr();
-  
-  const personalStaffId = currentUser?.staffId;
-  const staff = isPersonal ? staffs.find(s => s.id === personalStaffId) : null;
-
   const [confirmDelete, setConfirmDelete] = useState<{ staffId: string, field: keyof StaffAttendanceData } | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [pendingAttendance, setPendingAttendance] = useState<{ staffId: string, field: keyof StaffAttendanceData } | null>(null);
@@ -1349,6 +1343,12 @@ function StaffAttendanceView({
   const [lastStaffReportMessageIds, setLastStaffReportMessageIds] = useState<Record<string, number>>(() => 
     safeJSONParse(localStorage.getItem('attendance_last_staff_report_ids'), {})
   );
+
+  // Determine if we should show personal view (cards) or admin view (list)
+  // We show personal view if we only have one staff in the list (which happens in personal tab for non-admins)
+  const isPersonalView = staffs.length === 1 && staffs[0].id === currentUser?.staffId;
+  const personalStaff = isPersonalView ? staffs[0] : null;
+  const dayRecord = staffAttendance[currentDateStr] || {};
 
   useEffect(() => {
     localStorage.setItem('attendance_last_staff_report_ids', JSON.stringify(lastStaffReportMessageIds));
@@ -1379,7 +1379,8 @@ function StaffAttendanceView({
     }
 
     // Check if it's a deletion
-    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentDayRecord = staffAttendance[currentDateStr] || {};
+    const currentStaffRecord = currentDayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const isDelete = !!currentStaffRecord[field];
 
     // Geolocation check
@@ -1418,7 +1419,8 @@ function StaffAttendanceView({
   };
 
   const checkCameraRequirement = (staffId: string, field: keyof StaffAttendanceData) => {
-    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentDayRecord = staffAttendance[currentDateStr] || {};
+    const currentStaffRecord = currentDayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const isAlreadySet = !!currentStaffRecord[field];
 
     if (settings.requirePhoto && !isAlreadySet) {
@@ -1438,7 +1440,8 @@ function StaffAttendanceView({
   };
 
   const proceedWithAction = (staffId: string, field: keyof StaffAttendanceData) => {
-    const currentStaffRecord = dayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
+    const currentDayRecord = staffAttendance[currentDateStr] || {};
+    const currentStaffRecord = currentDayRecord[staffId] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const isCurrentlySet = !!currentStaffRecord[field];
 
     if (isCurrentlySet) {
@@ -1511,11 +1514,20 @@ function StaffAttendanceView({
       [staffId]: newStaffRecord
     };
 
+    // Immediate local state update for feedback
+    setStaffAttendance(prev => ({
+      ...prev,
+      [currentDateStr]: {
+        ...prev[currentDateStr],
+        [staffId]: newStaffRecord
+      }
+    }));
+
     firebaseService.saveStaffAttendance(currentDateStr, staffId, newStaffRecord);
     
     if (!isDelete) {
       const staffRef = staffs.find(s => s.id === staffId);
-      const getStatusLabel = (f: keyof StaffAttendanceData) => {
+      const getStatusLabelLocal = (f: keyof StaffAttendanceData) => {
         const time = newDayData[staffId][f] as string | null;
         if (!time || typeof time === 'boolean') return "---";
         const limit = staffRef?.[`${f}Time` as keyof Staff] as string | undefined;
@@ -1527,17 +1539,16 @@ function StaffAttendanceView({
         `🗓️Date: ${currentDateStr}\n` +
         ` ឈ្មោះបុគ្គលិក: <b>${escapeHTML(staffRef?.nameKhmer || 'Unknown')}</b>\n` +
         `🌅ពេលព្រឹក:\n` +
-        `   - ចូល: ${getStatusLabel('mIn')}\n` +
-        `   - ចេញ: ${getStatusLabel('mOut')}\n` +
+        `   - ចូល: ${getStatusLabelLocal('mIn')}\n` +
+        `   - ចេញ: ${getStatusLabelLocal('mOut')}\n` +
         `🌄ពេលរសៀល: \n` +
-        `   - ចូល: ${getStatusLabel('aIn')}\n` +
-        `   - ចេញ: ${getStatusLabel('aOut')}`;
+        `   - ចូល: ${getStatusLabelLocal('aIn')}\n` +
+        `   - ចេញ: ${getStatusLabelLocal('aOut')}`;
       
       const reportKey = `${currentDateStr}_staff_${staffId}`;
       const prevMsgId = lastStaffReportMessageIds[reportKey];
       
       const onMessageSent = (response: any) => {
-        console.log('Telegram report response:', response);
         if (response && response.ok && response.result?.message_id) {
           if (prevMsgId) {
             deleteTelegramMessage(prevMsgId);
@@ -1555,7 +1566,6 @@ function StaffAttendanceView({
             else if (response.error) detail = response.error;
             else if (response.message) detail = response.message;
             else if (typeof response === 'string') detail = response;
-            else if (response.ok === true && !response.result?.message_id) detail = 'Sent successfully but message ID is missing in response';
           }
           showToast(`⚠️ មិនអាចផ្ញើទៅ Telegram: ${detail}`, 'error');
         }
@@ -1608,11 +1618,8 @@ function StaffAttendanceView({
       )}
     </>
   );
-
-  if (isPersonal) {
-    if (!staff) return <div className="text-slate-500">រកមិនឃើញព័ត៌មានបុគ្គលិក</div>;
-    
-    const data = dayRecord[staff.id] || { mIn: null, mOut: null, aIn: null, aOut: null };
+  if (isPersonalView && personalStaff) {
+    const data = dayRecord[personalStaff.id] || { mIn: null, mOut: null, aIn: null, aOut: null };
     const actions = [
       { field: 'mIn', label: 'ចូលព្រឹក', icon: <LogIn size={32} />, color: 'emerald' },
       { field: 'mOut', label: 'ចេញព្រឹក', icon: <LogOut size={32} />, color: 'rose' },
@@ -1642,7 +1649,7 @@ function StaffAttendanceView({
         </div>
 
         {/* Standard Schedule Reference */}
-        {(staff.mInTime || staff.mOutTime || staff.aInTime || staff.aOutTime) && (
+        {(personalStaff.mInTime || personalStaff.mOutTime || personalStaff.aInTime || personalStaff.aOutTime) && (
           <div className="bg-blue-50/50 border border-blue-100/50 rounded-xl px-3 py-2 flex items-center gap-3">
             <div className="text-blue-600 shrink-0">
               <Clock size={14} />
@@ -1650,12 +1657,12 @@ function StaffAttendanceView({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-blue-400 uppercase tracking-wider text-[9px]">ព្រឹក:</span>
-                <span className="font-bold text-blue-800">{staff.mInTime || '-'} ➔ {staff.mOutTime || '-'}</span>
+                <span className="font-bold text-blue-800">{personalStaff.mInTime || '-'} ➔ {personalStaff.mOutTime || '-'}</span>
               </div>
               <div className="w-px h-3 bg-blue-200 hidden sm:block" />
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-blue-400 uppercase tracking-wider text-[9px]">ល្ងាច:</span>
-                <span className="font-bold text-blue-800">{staff.aInTime || '-'} ➔ {staff.aOutTime || '-'}</span>
+                <span className="font-bold text-blue-800">{personalStaff.aInTime || '-'} ➔ {personalStaff.aOutTime || '-'}</span>
               </div>
             </div>
           </div>
@@ -1667,7 +1674,7 @@ function StaffAttendanceView({
             const active = !!time;
             const style = colorMap[color][active ? 'active' : 'inactive'];
             
-            const limitTime = field === 'mIn' ? staff.mInTime : field === 'mOut' ? staff.mOutTime : field === 'aIn' ? staff.aInTime : staff.aOutTime;
+            const limitTime = field === 'mIn' ? personalStaff.mInTime : field === 'mOut' ? personalStaff.mOutTime : field === 'aIn' ? personalStaff.aInTime : personalStaff.aOutTime;
             const timeStr = typeof time === 'string' ? time : null;
             const statusLabel = getAttendanceLabel(timeStr, limitTime, field as keyof StaffAttendanceData);
 
@@ -1678,7 +1685,7 @@ function StaffAttendanceView({
                 autoFocus={false}
                 onClick={(e) => {
                   e.preventDefault();
-                  handleAttendanceAction(staff.id, field as keyof StaffAttendanceData);
+                  handleAttendanceAction(personalStaff.id, field as keyof StaffAttendanceData);
                 }}
                 disabled={!isToday}
                 className={`p-6 rounded-3xl shadow-sm border flex flex-col items-center gap-4 transition-all active:scale-95 touch-manipulation ${style} ${!isToday ? 'cursor-not-allowed' : ''}`}
