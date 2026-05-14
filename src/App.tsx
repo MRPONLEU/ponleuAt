@@ -493,20 +493,6 @@ export default function App() {
     }
   }, [filteredClasses, selectedClassId]);
 
-
-  // Auto-bind device for logged in user if not already bound
-  useEffect(() => {
-    if (!isFirebaseLoaded) return;
-    if (currentUser && currentUser.staffId && currentUser.staffId !== 'none') {
-      const st = staffs.find(s => s.id === currentUser.staffId);
-      if (st && !st.deviceId) {
-        const thisDeviceId = getDeviceId();
-        firebaseService.saveStaff({ ...st, deviceId: thisDeviceId });
-      }
-    }
-  }, [currentUser, staffs, isFirebaseLoaded]);
-
-
   useEffect(() => {
     localStorage.setItem('attendance_app_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
@@ -1488,7 +1474,8 @@ function StaffAttendanceView({
       const thisDeviceId = getDeviceId();
       const st = staffs.find(s => s.id === staffId);
       if (st && !st.deviceId) {
-        setStaffs(prev => prev.map(s => s.id === staffId ? { ...s, deviceId: thisDeviceId } : s));
+        // Persist device binding to Firebase
+        firebaseService.saveStaff({ ...st, deviceId: thisDeviceId });
       }
     }
 
@@ -3240,7 +3227,8 @@ function StaffsView({
       isOpen: true,
       message: `តើអ្នកប្រាកដជាចង់ Reset ឧបករណ៍សម្រាប់បុគ្គលិក "${staff.nameKhmer}" មែនទេ? វានឹងអនុញ្ញាតឱ្យគាត់ចុះវត្តមានពីឧបករណ៍ថ្មីបាន។`,
       onConfirm: () => {
-        firebaseService.saveStaff({ ...staff, deviceId: undefined });
+        const { deviceId, ...staffWithoutDevice } = staff;
+        firebaseService.saveStaff(staffWithoutDevice);
         showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
       }
     });
@@ -4166,7 +4154,8 @@ function UserManagementView({
       isOpen: true,
       message: `តើអ្នកប្រាកដជាចង់ Reset ឧបករណ៍សម្រាប់បុគ្គលិក "${staff.nameKhmer}" មែនទេ?`,
       onConfirm: () => {
-        firebaseService.saveStaff({ ...staff, deviceId: undefined });
+        const { deviceId, ...staffWithoutDevice } = staff;
+        firebaseService.saveStaff(staffWithoutDevice);
         showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
       }
     });
