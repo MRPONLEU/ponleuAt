@@ -699,12 +699,12 @@ export default function App() {
   };
 
   const filteredClasses = useMemo(() => {
-    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return classes;
+    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') return classes;
     return classes.filter(c => c.teacherId === currentUser?.staffId);
   }, [classes, currentUser]);
 
   const filteredStudents = useMemo(() => {
-    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return students;
+    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') return students;
     return students.filter(s => filteredClasses.some(c => c.id === s.classId));
   }, [students, filteredClasses, currentUser]);
   
@@ -858,7 +858,7 @@ export default function App() {
              </button>
              {isAttendanceExpanded && (
                <div className="pl-8 space-y-1">
-                  {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                  {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
                     <SidebarItem 
                       isActive={activeTab === 'attendance'} onClick={() => setActiveTab('attendance')} 
                       icon={<Users size={16} />} label="វត្តមានសិស្ស" 
@@ -977,7 +977,7 @@ export default function App() {
                  </button>
                  {isAttendanceExpanded && (
                    <div className="pl-8 space-y-1">
-                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
                         <SidebarItem 
                           isActive={activeTab === 'attendance'} onClick={() => {setActiveTab('attendance'); setIsMobileMenuOpen(false);}} 
                           icon={<Users size={16} />} label="វត្តមានសិស្ស" 
@@ -1115,7 +1115,7 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'attendance' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'attendance' && (
               <AttendanceView 
                 students={filteredStudents}
                 classes={filteredClasses}
