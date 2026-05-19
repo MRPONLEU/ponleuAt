@@ -878,7 +878,7 @@ export default function App() {
              )}
            </div>
 
-           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
              <>
                <SidebarItem 
                  isActive={activeTab === 'classes'} onClick={() => setActiveTab('classes')} 
@@ -1003,7 +1003,7 @@ export default function App() {
                  )}
                </div>
 
-                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
                   <>
                     <SidebarItem 
                       isActive={activeTab === 'classes'} onClick={() => {setActiveTab('classes'); setIsMobileMenuOpen(false);}} 
@@ -1206,12 +1206,12 @@ export default function App() {
               />
             )}
             
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'classes' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'classes' && (
               <ClassesView 
-                classes={classes}
+                classes={filteredClasses}
                 setClasses={setClasses}
-                staffs={staffs}
-                students={students}
+                staffs={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? staffs : staffs.filter(s => s.id === currentUser?.staffId)}
+                students={filteredStudents}
                 onAddStudent={(classId) => {
                   setSelectedClassId(classId);
                   setActiveTab('students');
@@ -1226,11 +1226,11 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'students' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'students' && (
               <StudentsView 
-                classes={classes}
+                classes={filteredClasses}
                 selectedClassId={selectedClassId}
-                students={students} 
+                students={filteredStudents} 
                 setStudents={setStudents} 
                 isModalOpen={isStudentModalOpen}
                 setIsModalOpen={setIsStudentModalOpen}
@@ -2929,7 +2929,7 @@ function ClassesView({
     setEditingClass(null);
     setClassNameInput('');
     setStudyTimeInput('');
-    setTeacherIdInput('');
+    setTeacherIdInput(staffs.length === 1 ? staffs[0].id : '');
     setIsModalOpen(true);
   };
 
