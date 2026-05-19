@@ -901,7 +901,7 @@ export default function App() {
                       />
                       <SidebarItem 
                         isActive={activeTab === 'staff_report'} onClick={() => setActiveTab('staff_report')} 
-                        icon={<BarChart3 size={16} />} label="របាយការណ៍ខ្ញុំ" 
+                        icon={<BarChart3 size={16} />} label={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? "របាយការណ៍បុគ្គលិក" : "របាយការណ៍ខ្ញុំ"} 
                       />
                    </div>
                  )}
@@ -1011,7 +1011,7 @@ export default function App() {
                             />
                             <SidebarItem 
                               isActive={activeTab === 'staff_report'} onClick={() => {setActiveTab('staff_report'); setIsMobileMenuOpen(false);}} 
-                              icon={<BarChart3 size={16} />} label="របាយការណ៍បុគ្គលិក" 
+                              icon={<BarChart3 size={16} />} label={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? "របាយការណ៍បុគ្គលិក" : "របាយការណ៍ខ្ញុំ"} 
                             />
                          </div>
                        )}
@@ -1176,7 +1176,7 @@ export default function App() {
               />
             )}
             
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'classes' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'classes' && (
               <ClassesView 
                 classes={classes}
                 setClasses={setClasses}
@@ -1196,7 +1196,7 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'students' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'students' && (
               <StudentsView 
                 classes={classes}
                 selectedClassId={selectedClassId}
