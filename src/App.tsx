@@ -864,12 +864,6 @@ export default function App() {
                       icon={<Users size={16} />} label="វត្តមានសិស្ស" 
                     />
                   )}
-                  {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
-                    <SidebarItem 
-                      isActive={activeTab === 'history'} onClick={() => setActiveTab('history')} 
-                      icon={<History size={16} />} label="ប្រវត្តិវត្តមាន" 
-                    />
-                  )}
                   <SidebarItem 
                     isActive={activeTab === 'personal_attendance'} onClick={() => setActiveTab('personal_attendance')} 
                     icon={<Clock size={16} />} label="វត្តមានផ្ទាល់ខ្លួន" 
@@ -987,12 +981,6 @@ export default function App() {
                         <SidebarItem 
                           isActive={activeTab === 'attendance'} onClick={() => {setActiveTab('attendance'); setIsMobileMenuOpen(false);}} 
                           icon={<Users size={16} />} label="វត្តមានសិស្ស" 
-                        />
-                      )}
-                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
-                        <SidebarItem 
-                          isActive={activeTab === 'history'} onClick={() => {setActiveTab('history'); setIsMobileMenuOpen(false);}} 
-                          icon={<History size={16} />} label="ប្រវត្តិវត្តមាន" 
                         />
                       )}
                       <SidebarItem 
@@ -1166,14 +1154,7 @@ export default function App() {
               />
             )}
             
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'history' && (
-              <AttendanceHistoryView 
-                students={filteredStudents}
-                classes={filteredClasses}
-                attendance={attendance}
-              />
-            )}
-            
+
             {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'user_management' && (
               <UserManagementView
                 users={users}
@@ -2602,60 +2583,6 @@ function AttendanceView({
 }
 
 // --- 2. Attendance History View ---
-function AttendanceHistoryView({ students, classes, attendance }: { students: Student[], classes: Class[], attendance: AttendanceState }) {
-  const [selectedClassId, setSelectedClassId] = useState<string>((classes || [])[0]?.id || '');
-  const [startDate, setStartDate] = useState(getTodayStr());
-  const [endDate, setEndDate] = useState(getTodayStr());
-
-  const filteredStudents = useMemo(() => (students || []).filter(s => s.classId === selectedClassId), [students, selectedClassId]);
-
-  const dates = useMemo(() => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const dateArray = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dateArray.push(d.toISOString().split('T')[0]);
-    }
-    return dateArray;
-  }, [startDate, endDate]);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h2 className="text-xl font-bold text-slate-800">ប្រវត្តិវត្តមាន</h2>
-        <div className="flex flex-wrap gap-2">
-           <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="p-2 border rounded-xl">
-             {(classes || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-           </select>
-           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 border rounded-xl" />
-           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 border rounded-xl" />
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50 border-b">
-              <th className="p-3">សិស្ស</th>
-              {(dates || []).map(date => <th key={date} className="p-3 text-xs">{date}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {(filteredStudents || []).map(student => (
-              <tr key={student.id} className="border-b">
-                <td className="p-3 font-medium">{student.nameKhmer}</td>
-                {(dates || []).map(date => {
-                  const status = attendance[date]?.[student.id] || '-';
-                  return <td key={date} className="p-3 text-center text-xs">{status}</td>
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 // --- Helper: Date Range Modal ---
 function DateRangeModal({ 
   isOpen, onClose, startDate, setStartDate, endDate, setEndDate,
