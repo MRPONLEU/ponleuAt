@@ -699,12 +699,12 @@ export default function App() {
   };
 
   const filteredClasses = useMemo(() => {
-    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') return classes;
+    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return classes;
     return classes.filter(c => c.teacherId === currentUser?.staffId);
   }, [classes, currentUser]);
 
   const filteredStudents = useMemo(() => {
-    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') return students;
+    if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return students;
     return students.filter(s => filteredClasses.some(c => c.id === s.classId));
   }, [students, filteredClasses, currentUser]);
   
