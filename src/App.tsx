@@ -870,7 +870,7 @@ export default function App() {
              )}
            </div>
 
-           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
              <>
                <SidebarItem 
                  isActive={activeTab === 'classes'} onClick={() => setActiveTab('classes')} 
@@ -880,6 +880,11 @@ export default function App() {
                  isActive={activeTab === 'students'} onClick={() => setActiveTab('students')} 
                  icon={<Users size={20} />} label="គ្រប់គ្រងសិស្ស" 
                />
+             </>
+           )}
+
+           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+             <>
                <div className="space-y-1">
                  <button 
                     onClick={() => setIsReportsExpanded(!isReportsExpanded)}
@@ -980,7 +985,7 @@ export default function App() {
                  )}
                </div>
 
-                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
                   <>
                     <SidebarItem 
                       isActive={activeTab === 'classes'} onClick={() => {setActiveTab('classes'); setIsMobileMenuOpen(false);}} 
@@ -990,6 +995,11 @@ export default function App() {
                       isActive={activeTab === 'students'} onClick={() => {setActiveTab('students'); setIsMobileMenuOpen(false);}} 
                       icon={<Users size={20} />} label="គ្រប់គ្រងសិស្ស" 
                     />
+                  </>
+                )}
+
+                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+                  <>
                     <div className="space-y-1">
                        <button 
                           onClick={() => setIsReportsExpanded(!isReportsExpanded)}
@@ -1176,7 +1186,7 @@ export default function App() {
               />
             )}
             
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'classes' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'classes' && (
               <ClassesView 
                 classes={classes}
                 setClasses={setClasses}
@@ -1196,7 +1206,7 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'students' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'students' && (
               <StudentsView 
                 classes={classes}
                 selectedClassId={selectedClassId}
