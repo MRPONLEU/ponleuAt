@@ -870,62 +870,63 @@ export default function App() {
              )}
            </div>
 
-          <SidebarItem 
-            isActive={activeTab === 'classes'} onClick={() => setActiveTab('classes')} 
-            icon={<LayoutList size={20} />} label="គ្រប់គ្រងថ្នាក់" 
-          />
-          <SidebarItem 
-            isActive={activeTab === 'students'} onClick={() => setActiveTab('students')} 
-            icon={<Users size={20} />} label="គ្រប់គ្រងសិស្ស" 
-          />
-          <div className="space-y-1">
-            <button 
-               onClick={() => setIsReportsExpanded(!isReportsExpanded)}
-               className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
-                 'text-slate-600 hover:bg-slate-100 font-medium'
-               }`}
-            >
-              <div className="flex items-center gap-3">
-                <BarChart3 size={20} />
-                <span>របាយការណ៍</span>
-              </div>
-              {isReportsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {isReportsExpanded && (
-              <div className="pl-8 space-y-1">
-                 <SidebarItem 
-                   isActive={activeTab === 'report'} onClick={() => setActiveTab('report')} 
-                   icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
-                 />
-                 {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
-                   <SidebarItem 
-                    isActive={activeTab === 'staff_report'} onClick={() => setActiveTab('staff_report')} 
-                    icon={<BarChart3 size={16} />} label="របាយការណ៍ខ្ញុំ" 
-                  />
+           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+             <>
+               <SidebarItem 
+                 isActive={activeTab === 'classes'} onClick={() => setActiveTab('classes')} 
+                 icon={<LayoutList size={20} />} label="គ្រប់គ្រងថ្នាក់" 
+               />
+               <SidebarItem 
+                 isActive={activeTab === 'students'} onClick={() => setActiveTab('students')} 
+                 icon={<Users size={20} />} label="គ្រប់គ្រងសិស្ស" 
+               />
+               <div className="space-y-1">
+                 <button 
+                    onClick={() => setIsReportsExpanded(!isReportsExpanded)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
+                      'text-slate-600 hover:bg-slate-100 font-medium'
+                    }`}
+                 >
+                   <div className="flex items-center gap-3">
+                     <BarChart3 size={20} />
+                     <span>របាយការណ៍</span>
+                   </div>
+                   {isReportsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                 </button>
+                 {isReportsExpanded && (
+                   <div className="pl-8 space-y-1">
+                      <SidebarItem 
+                        isActive={activeTab === 'report'} onClick={() => setActiveTab('report')} 
+                        icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
+                      />
+                      <SidebarItem 
+                        isActive={activeTab === 'staff_report'} onClick={() => setActiveTab('staff_report')} 
+                        icon={<BarChart3 size={16} />} label="របាយការណ៍ខ្ញុំ" 
+                      />
+                   </div>
                  )}
-              </div>
-            )}
-          </div>
-          {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
-            <>
-              <SidebarItem 
-                isActive={activeTab === 'staffs'} onClick={() => setActiveTab('staffs')} 
-                icon={<Briefcase size={20} />} label="គ្រប់គ្រងបុគ្គលិក" 
-              />
-              <SidebarItem 
-                isActive={activeTab === 'user_management'} onClick={() => setActiveTab('user_management')} 
-                icon={<User size={20} />} label="គ្រប់គ្រងអ្នកប្រើប្រាស់" 
-              />
-              {currentUser?.role === 'master_admin' && (
-                <SidebarItem 
-                  isActive={activeTab === 'settings'} onClick={() => setActiveTab('settings')} 
-                  icon={<SettingsIcon size={20} />} label="ការកំណត់" 
-                />
-              )}
-            </>
-          )}
+               </div>
+             </>
+           )}
 
-
+           {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+             <>
+               <SidebarItem 
+                 isActive={activeTab === 'staffs'} onClick={() => setActiveTab('staffs')} 
+                 icon={<Briefcase size={20} />} label="គ្រប់គ្រងបុគ្គលិក" 
+               />
+               <SidebarItem 
+                 isActive={activeTab === 'user_management'} onClick={() => setActiveTab('user_management')} 
+                 icon={<User size={20} />} label="គ្រប់គ្រងអ្នកប្រើប្រាស់" 
+               />
+               {currentUser?.role === 'master_admin' && (
+                 <SidebarItem 
+                   isActive={activeTab === 'settings'} onClick={() => setActiveTab('settings')} 
+                   icon={<SettingsIcon size={20} />} label="ការកំណត់" 
+                 />
+               )}
+             </>
+           )}
         </nav>
       </aside>
 
@@ -978,7 +979,8 @@ export default function App() {
                    </div>
                  )}
                </div>
-                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+
+                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
                   <>
                     <SidebarItem 
                       isActive={activeTab === 'classes'} onClick={() => {setActiveTab('classes'); setIsMobileMenuOpen(false);}} 
@@ -988,15 +990,7 @@ export default function App() {
                       isActive={activeTab === 'students'} onClick={() => {setActiveTab('students'); setIsMobileMenuOpen(false);}} 
                       icon={<Users size={20} />} label="គ្រប់គ្រងសិស្ស" 
                     />
-                    <SidebarItem 
-                      isActive={activeTab === 'staffs'} onClick={() => {setActiveTab('staffs'); setIsMobileMenuOpen(false);}} 
-                      icon={<Briefcase size={20} />} label="គ្រប់គ្រងបុគ្គលិក" 
-                    />
-                    <SidebarItem 
-                      isActive={activeTab === 'user_management'} onClick={() => {setActiveTab('user_management'); setIsMobileMenuOpen(false);}} 
-                      icon={<User size={20} />} label="គ្រប់គ្រងអ្នកប្រើប្រាស់" 
-                    />
-                     <div className="space-y-1">
+                    <div className="space-y-1">
                        <button 
                           onClick={() => setIsReportsExpanded(!isReportsExpanded)}
                           className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
@@ -1022,12 +1016,24 @@ export default function App() {
                          </div>
                        )}
                      </div>
-                     {currentUser?.role === 'master_admin' && (
-                       <SidebarItem 
-                         isActive={activeTab === 'settings'} onClick={() => {setActiveTab('settings'); setIsMobileMenuOpen(false);}} 
-                         icon={<SettingsIcon size={20} />} label="ការកំណត់" 
-                       />
-                     )}
+                  </>
+                )}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                  <>
+                    <SidebarItem 
+                      isActive={activeTab === 'staffs'} onClick={() => {setActiveTab('staffs'); setIsMobileMenuOpen(false);}} 
+                      icon={<Briefcase size={20} />} label="គ្រប់គ្រងបុគ្គលិក" 
+                    />
+                    <SidebarItem 
+                      isActive={activeTab === 'user_management'} onClick={() => {setActiveTab('user_management'); setIsMobileMenuOpen(false);}} 
+                      icon={<User size={20} />} label="គ្រប់គ្រងអ្នកប្រើប្រាស់" 
+                    />
+                    {currentUser?.role === 'master_admin' && (
+                      <SidebarItem 
+                        isActive={activeTab === 'settings'} onClick={() => {setActiveTab('settings'); setIsMobileMenuOpen(false);}} 
+                        icon={<SettingsIcon size={20} />} label="ការកំណត់" 
+                      />
+                    )}
                   </>
                 )}
               </nav>
@@ -1220,7 +1226,7 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'report' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'report' && (
               <ReportView 
                 students={filteredStudents} 
                 classes={filteredClasses}
@@ -1229,7 +1235,7 @@ export default function App() {
                 attendance={attendance} 
               />
             )}
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'staff_report' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'staff_report' && (
               <StaffReportView
                 staffs={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? staffs : staffs.filter(s => s.id === currentUser?.staffId)}
                 staffAttendance={staffAttendance}
@@ -1668,7 +1674,7 @@ function StaffAttendanceView({
 
           const radius = settings.allowedRadius || 100;
           if (distance > radius) {
-            showToast(`អ្នកនៅឆ្ងាយពីសាលាពេក (${Math.round(distance)}m)។ ចម្ងាយអនុញ្ញាតគឺ ${radius}m (Accuracy: ${Math.round(accuracy)}m)`, "error");
+            showToast(`អ្នកនៅឆ្ងាយពីសាលាពេក (${Math.round(distance)}m)។ (ចម្ងាយអនុញ្ញាត: ${radius}m, ច្បាស់ត្រឹម: ${Math.round(accuracy)}m)។ ប្រសិនបើអ្នកនៅសាលាហើយ សូមឱ្យ Admin ត្រួតពិនិត្យទីតាំងសាលាឡើងវិញ។`, "error");
           } else {
             checkCameraRequirement(staffId, field);
           }
@@ -1922,7 +1928,7 @@ function StaffAttendanceView({
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-800">វត្តមានថ្ងៃ</h2>
+          <h2 className="text-xl font-bold text-slate-800">វត្តមានថ្ងៃនេះ</h2>
           <div className="relative">
              <input 
               type="date"
@@ -1932,6 +1938,22 @@ function StaffAttendanceView({
             />
           </div>
         </div>
+
+        {/* Location Tip */}
+        {settings.schoolLatitude && isToday && (
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-3">
+            <div className="bg-amber-100 p-2 rounded-lg h-fit text-amber-600">
+              <Info size={18} />
+            </div>
+            <div>
+              <h4 className="font-bold text-amber-900 text-[13px] mb-1">បញ្ជាក់អំពីទីតាំង (Location)</h4>
+              <p className="text-amber-800 text-[11px] leading-relaxed">
+                ប្រសិនបើអ្នកប្រើ <b>Computer</b> ទីតាំងអាចនឹងលំអៀងច្រើនដែលធ្វើឱ្យចុះវត្តមានមិនបាន។<br/>
+                <b>ដំណោះស្រាយ:</b> សូមប្រើ <b>ទូរសព្ទ</b> ដើម្បីចុះវត្តមាន ឬសាកល្បងភ្ជាប់ <b>Hotspot</b> ពីទូរសព្ទដើម្បីឱ្យ Computer ទទួលបានទីតាំងច្បាស់ជាងមុន។
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Standard Schedule Reference */}
         {(personalStaff.mInTime || personalStaff.mOutTime || personalStaff.aInTime || personalStaff.aOutTime) && (
