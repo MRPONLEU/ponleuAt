@@ -902,7 +902,7 @@ export default function App() {
                  </button>
                  {isReportsExpanded && (
                    <div className="pl-8 space-y-1">
-                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
                         <SidebarItem 
                           isActive={activeTab === 'report'} onClick={() => setActiveTab('report')} 
                           icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
@@ -1021,7 +1021,7 @@ export default function App() {
                        </button>
                        {isReportsExpanded && (
                          <div className="pl-8 space-y-1">
-                            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
                               <SidebarItem 
                                 isActive={activeTab === 'report'} onClick={() => {setActiveTab('report'); setIsMobileMenuOpen(false);}} 
                                 icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
@@ -1244,7 +1244,7 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'report' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'report' && (
               <ReportView 
                 students={filteredStudents} 
                 classes={filteredClasses}
