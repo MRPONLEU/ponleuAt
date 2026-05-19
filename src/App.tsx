@@ -858,10 +858,12 @@ export default function App() {
              </button>
              {isAttendanceExpanded && (
                <div className="pl-8 space-y-1">
-                  <SidebarItem 
-                    isActive={activeTab === 'attendance'} onClick={() => setActiveTab('attendance')} 
-                    icon={<Users size={16} />} label="វត្តមានសិស្ស" 
-                  />
+                  {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                    <SidebarItem 
+                      isActive={activeTab === 'attendance'} onClick={() => setActiveTab('attendance')} 
+                      icon={<Users size={16} />} label="វត្តមានសិស្ស" 
+                    />
+                  )}
                   <SidebarItem 
                     isActive={activeTab === 'personal_attendance'} onClick={() => setActiveTab('personal_attendance')} 
                     icon={<Clock size={16} />} label="វត្តមានផ្ទាល់ខ្លួន" 
@@ -900,10 +902,12 @@ export default function App() {
                  </button>
                  {isReportsExpanded && (
                    <div className="pl-8 space-y-1">
-                      <SidebarItem 
-                        isActive={activeTab === 'report'} onClick={() => setActiveTab('report')} 
-                        icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
-                      />
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                        <SidebarItem 
+                          isActive={activeTab === 'report'} onClick={() => setActiveTab('report')} 
+                          icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
+                        />
+                      )}
                       <SidebarItem 
                         isActive={activeTab === 'staff_report'} onClick={() => setActiveTab('staff_report')} 
                         icon={<BarChart3 size={16} />} label={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? "របាយការណ៍បុគ្គលិក" : "របាយការណ៍ខ្ញុំ"} 
@@ -973,10 +977,12 @@ export default function App() {
                  </button>
                  {isAttendanceExpanded && (
                    <div className="pl-8 space-y-1">
-                      <SidebarItem 
-                        isActive={activeTab === 'attendance'} onClick={() => {setActiveTab('attendance'); setIsMobileMenuOpen(false);}} 
-                        icon={<Users size={16} />} label="វត្តមានសិស្ស" 
-                      />
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                        <SidebarItem 
+                          isActive={activeTab === 'attendance'} onClick={() => {setActiveTab('attendance'); setIsMobileMenuOpen(false);}} 
+                          icon={<Users size={16} />} label="វត្តមានសិស្ស" 
+                        />
+                      )}
                       <SidebarItem 
                         isActive={activeTab === 'personal_attendance'} onClick={() => {setActiveTab('personal_attendance'); setIsMobileMenuOpen(false);}} 
                         icon={<Clock size={16} />} label="វត្តមានផ្ទាល់ខ្លួន" 
@@ -1015,10 +1021,12 @@ export default function App() {
                        </button>
                        {isReportsExpanded && (
                          <div className="pl-8 space-y-1">
-                            <SidebarItem 
-                              isActive={activeTab === 'report'} onClick={() => {setActiveTab('report'); setIsMobileMenuOpen(false);}} 
-                              icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
-                            />
+                            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && (
+                              <SidebarItem 
+                                isActive={activeTab === 'report'} onClick={() => {setActiveTab('report'); setIsMobileMenuOpen(false);}} 
+                                icon={<BarChart3 size={16} />} label="របាយការណ៍សិស្ស" 
+                              />
+                            )}
                             <SidebarItem 
                               isActive={activeTab === 'staff_report'} onClick={() => {setActiveTab('staff_report'); setIsMobileMenuOpen(false);}} 
                               icon={<BarChart3 size={16} />} label={(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') ? "របាយការណ៍បុគ្គលិក" : "របាយការណ៍ខ្ញុំ"} 
@@ -1107,7 +1115,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'attendance' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'attendance' && (
               <AttendanceView 
                 students={filteredStudents}
                 classes={filteredClasses}
@@ -1236,7 +1244,7 @@ export default function App() {
               />
             )}
 
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'report' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'report' && (
               <ReportView 
                 students={filteredStudents} 
                 classes={filteredClasses}
