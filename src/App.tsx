@@ -864,6 +864,12 @@ export default function App() {
                       icon={<Users size={16} />} label="វត្តមានសិស្ស" 
                     />
                   )}
+                  {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+                    <SidebarItem 
+                      isActive={activeTab === 'history'} onClick={() => setActiveTab('history')} 
+                      icon={<History size={16} />} label="ប្រវត្តិវត្តមាន" 
+                    />
+                  )}
                   <SidebarItem 
                     isActive={activeTab === 'personal_attendance'} onClick={() => setActiveTab('personal_attendance')} 
                     icon={<Clock size={16} />} label="វត្តមានផ្ទាល់ខ្លួន" 
@@ -981,6 +987,12 @@ export default function App() {
                         <SidebarItem 
                           isActive={activeTab === 'attendance'} onClick={() => {setActiveTab('attendance'); setIsMobileMenuOpen(false);}} 
                           icon={<Users size={16} />} label="វត្តមានសិស្ស" 
+                        />
+                      )}
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && (
+                        <SidebarItem 
+                          isActive={activeTab === 'history'} onClick={() => {setActiveTab('history'); setIsMobileMenuOpen(false);}} 
+                          icon={<History size={16} />} label="ប្រវត្តិវត្តមាន" 
                         />
                       )}
                       <SidebarItem 
@@ -1154,10 +1166,10 @@ export default function App() {
               />
             )}
             
-            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin') && activeTab === 'history' && (
+            {(currentUser?.role === 'admin' || currentUser?.role === 'master_admin' || currentUser?.role === 'user') && activeTab === 'history' && (
               <AttendanceHistoryView 
-                students={students}
-                classes={classes}
+                students={filteredStudents}
+                classes={filteredClasses}
                 attendance={attendance}
               />
             )}
