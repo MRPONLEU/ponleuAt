@@ -134,9 +134,35 @@ export const firebaseService = {
   saveSettings: async (settings: AppSettings) => {
     const path = 'settings/global';
     try {
-      await setDoc(doc(db, 'settings', 'global'), settings);
+      // Filter out undefined and NaN values as Firestore doesn't like them
+      const cleanSettings = Object.fromEntries(
+        Object.entries(settings)
+          .filter(([_, v]) => v !== undefined && (typeof v !== 'number' || !isNaN(v)))
+          .map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
+      );
+
+      // Add a longer timeout to prevent infinite hang (60s)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('សំណើដាច់ (Timeout - 60s). សូមពិនិត្យមើលអ៊ីនធឺណិតរបស់អ្នក ឬព្យាយាមម្តងទៀត។')), 60000)
+      );
+
+      // Try with exponential backoff or simply retry once
+      const saveOp = async () => {
+        try {
+          await setDoc(doc(db, 'settings', 'global'), cleanSettings);
+        } catch (e) {
+          // One retry
+          await setDoc(doc(db, 'settings', 'global'), cleanSettings);
+        }
+      };
+
+      await Promise.race([
+        saveOp(),
+        timeoutPromise
+      ]);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, path);
+      throw e;
     }
   },
 

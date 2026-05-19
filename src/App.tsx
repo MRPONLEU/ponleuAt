@@ -3,14 +3,15 @@ import * as XLSX from 'xlsx';
 import { 
   Users, CalendarCheck, BarChart3, Plus, Trash2, Edit2,
   CheckCircle2, XCircle, Clock, FileText, Calendar as CalendarIcon, UserPlus, LayoutList, Menu, X, Briefcase, LayoutDashboard, History, ChevronDown, ChevronUp, User, LogIn, LogOut, Settings as SettingsIcon, Send,
-  Camera, RefreshCcw, MapPin, Smartphone, ShieldCheck, Smile, Lock, Download, Upload
+  Camera, RefreshCcw, MapPin, Smartphone, ShieldCheck, Smile, Lock, Download, Upload, AlertCircle, Info
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Student, AttendanceStatus, AttendanceState, Class, Staff, StaffAttendanceState, StaffAttendanceData, AppSettings, Toast } from './types';
 import { AppUser, AppUserRole } from './types';
 import { firebaseService } from './services/firebaseService';
-import { auth } from './lib/firebase';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { auth, googleProvider } from './lib/firebase';
+import { signInAnonymously, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { googleSheetsService } from './services/googleSheetsService';
 
 // --- Utility Functions ---
 const escapeHTML = (text: any) => {
@@ -272,19 +273,216 @@ export default function App() {
   const [attendance, setAttendance] = useState<AttendanceState>({});
   const [staffAttendance, setStaffAttendance] = useState<StaffAttendanceState>({});
 
-  // Auth & Firebase Sync
+  // Google Sheets Integration State
+  const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('google_access_token'));
+  const [spreadsheetId, setSpreadsheetId] = useState<string | null>(localStorage.getItem('spreadsheet_id'));
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    if (isLoggingIn) return;
+    try {
+      setIsLoggingIn(true);
+      showToast("សូមរង់ចាំ និងពិនិត្យមើលផ្ទាំង Popup ដែលកំពុងបើក... (Please check the popup window)", "info");
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setAccessToken(credential.accessToken);
+        localStorage.setItem('google_access_token', credential.accessToken);
+        showToast("បានភ្ជាប់ជាមួយ Google Account ជោគជ័យ!", "success");
+      }
+    } catch (error: any) {
+      console.error("Google Auth Error:", error);
+      if (error.code === 'auth/cancelled-popup-request') {
+        showToast("កំពុងរង់ចាំការបញ្ជាក់ពី Google... (Google is already verifying...)", "info");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        showToast("អ្នកបានបិទការផ្ទៀងផ្ទាត់ (Verification closed by user)", "info");
+      } else {
+        showToast("មិនអាចភ្ជាប់ជាមួយ Google បានទេ: " + error.message, "error");
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const initializeSpreadsheet = async () => {
+    if (!accessToken) return;
+    try {
+      setIsSyncing(true);
+      const sheet = await googleSheetsService.createSpreadsheet(accessToken, "SmartSchool Attendance Database");
+      setSpreadsheetId(sheet.spreadsheetId);
+      localStorage.setItem('spreadsheet_id', sheet.spreadsheetId);
+      showToast("បានបង្កើត Google Sheet ថ្មីជោគជ័យ!", "success");
+      
+      // Initial migration
+      await syncToSheets();
+    } catch (error: any) {
+      console.error("Sheet Creation Error:", error);
+      if (error.status === 401 || error.message === 'UNAUTHORIZED') {
+        setAccessToken(null);
+        localStorage.removeItem('google_access_token');
+        showToast("Session របស់ Google បានផុតកំណត់ សូមភ្ជាប់ឡើងវិញ", "error");
+      } else {
+        showToast("មិនអាចបង្កើត Sheet បានទេ: " + error.message, "error");
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const syncToSheets = async () => {
+    if (!accessToken || !spreadsheetId) return;
+    try {
+      setIsSyncing(true);
+      // Ensure all master sheets exist first
+      await googleSheetsService.ensureSheetsExist(accessToken, spreadsheetId, ['students', 'classes', 'staff', 'users', 'settings', 'attendance', 'staffAttendance']);
+      
+      await Promise.all([
+        googleSheetsService.saveAll(accessToken, spreadsheetId, 'students', students),
+        googleSheetsService.saveAll(accessToken, spreadsheetId, 'classes', classes),
+        googleSheetsService.saveAll(accessToken, spreadsheetId, 'staff', staffs),
+        googleSheetsService.saveAll(accessToken, spreadsheetId, 'users', users),
+        googleSheetsService.saveAll(accessToken, spreadsheetId, 'settings', [settings]),
+      ]);
+      showToast("បានរក្សាទុកទិន្នន័យទៅ Google Sheet ជោគជ័យ!", "success");
+    } catch (error: any) {
+      console.error("Sync Error:", error);
+      if (error.status === 401 || error.message === 'UNAUTHORIZED') {
+        setAccessToken(null);
+        localStorage.removeItem('google_access_token');
+        showToast("Session របស់ Google បានផុតកំណត់ សូមភ្ជាប់ឡើងវិញ", "error");
+      } else if (error.message === 'SPREADSHEET_NOT_FOUND') {
+        showToast("រកមិនឃើញ Google Sheet នេះទេ។ សូមបង្កើតថ្មី!", "error");
+        setSpreadsheetId(null);
+        localStorage.removeItem('spreadsheet_id');
+      } else {
+        showToast("មិនអាចរក្សាទុកទិន្នន័យបានទេ: " + error.message, "error");
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const loadFromSheets = async () => {
+    if (!accessToken || !spreadsheetId) return;
+    try {
+      setIsSyncing(true);
+      // Verify spreadsheet exists first
+      await googleSheetsService.ensureSheetsExist(accessToken, spreadsheetId, []);
+
+      const [s, c, st, u, sett] = await Promise.all([
+        googleSheetsService.getAll<Student>(accessToken, spreadsheetId, 'students'),
+        googleSheetsService.getAll<Class>(accessToken, spreadsheetId, 'classes'),
+        googleSheetsService.getAll<Staff>(accessToken, spreadsheetId, 'staff'),
+        googleSheetsService.getAll<AppUser>(accessToken, spreadsheetId, 'users'),
+        googleSheetsService.getAll<AppSettings>(accessToken, spreadsheetId, 'settings'),
+      ]);
+      if (s.length > 0) setStudents(s);
+      if (c.length > 0) setClasses(c);
+      if (st.length > 0) setStaffs(st);
+      if (u.length > 0) setUsers(u);
+      if (sett.length > 0) setSettings(sett[0]);
+      showToast("បានទាញយកទិន្នន័យពី Google Sheet រួចរាល់!", "success");
+    } catch (error: any) {
+      console.error("Load Error:", error);
+      if (error.status === 401 || error.message === 'UNAUTHORIZED') {
+        setAccessToken(null);
+        localStorage.removeItem('google_access_token');
+        showToast("Session របស់ Google បានផុតកំណត់ សូមភ្ជាប់ឡើងវិញ", "error");
+      } else if (error.message === 'SPREADSHEET_NOT_FOUND') {
+        showToast("រកមិនឃើញ Google Sheet នេះទេ។ សូមបង្កើតថ្មី!", "error");
+        setSpreadsheetId(null);
+        localStorage.removeItem('spreadsheet_id');
+      } else {
+        showToast("មិនអាចទាញយកទិន្នន័យបានទេ: " + error.message, "error");
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Sync spreadsheetId from global settings if available
   useEffect(() => {
-    // Authenticate anonymously for rule access
+    if (settings.spreadsheetId && settings.spreadsheetId !== spreadsheetId) {
+      setSpreadsheetId(settings.spreadsheetId);
+      localStorage.setItem('spreadsheet_id', settings.spreadsheetId);
+    }
+  }, [settings.spreadsheetId]);
+
+  // Sync Attendance & Main Collections
+  useEffect(() => {
+    if (!isFirebaseLoaded) return;
+
+    const fetchAllFromSheets = async () => {
+      if (accessToken && spreadsheetId) {
+        try {
+          const [s, c, st, sa, sta] = await Promise.all([
+            googleSheetsService.getAll<Student>(accessToken, spreadsheetId, 'students'),
+            googleSheetsService.getAll<Class>(accessToken, spreadsheetId, 'classes'),
+            googleSheetsService.getAll<Staff>(accessToken, spreadsheetId, 'staff'),
+            googleSheetsService.getAttendance(accessToken, spreadsheetId, currentDateStr),
+            googleSheetsService.getStaffAttendance(accessToken, spreadsheetId, currentDateStr)
+          ]);
+          
+          if (s.length > 0) setStudents(s);
+          if (c.length > 0) setClasses(c);
+          if (st.length > 0) setStaffs(st);
+          
+          setAttendance(prev => ({
+            ...prev,
+            [currentDateStr]: sa
+          }));
+          
+          setStaffAttendance(prev => ({
+            ...prev,
+            [currentDateStr]: sta
+          }));
+
+          showToast("ទិន្នន័យត្រូវបានទាញយកពី Google Sheets រួចរាល់!", "success");
+        } catch (error: any) {
+          console.error("Failed to fetch all from Sheets:", error);
+          if (error.status === 401 || error.message === 'UNAUTHORIZED') {
+            setAccessToken(null);
+            localStorage.removeItem('google_access_token');
+          }
+        }
+      }
+    };
+
+    fetchAllFromSheets();
+
+    // Firebase Sync remains for Settings and Users
+    const unsubUsers = firebaseService.syncCollection<AppUser>('users', setUsers);
+    const unsubSettings = firebaseService.syncSettings(setSettings);
+
+    // Only sync items from Firebase if NOT using Sheets as source of truth
+    let unsubClasses = () => {};
+    let unsubStaff = () => {};
+    let unsubStudents = () => {};
+
+    if (!accessToken || !spreadsheetId) {
+      unsubClasses = firebaseService.syncCollection<Class>('classes', setClasses);
+      unsubStaff = firebaseService.syncCollection<Staff>('staff', setStaffs);
+      unsubStudents = firebaseService.syncCollection<Student>('students', setStudents);
+    }
+
+    return () => {
+      unsubUsers();
+      unsubSettings();
+      unsubClasses();
+      unsubStaff();
+      unsubStudents();
+    };
+  }, [currentDateStr, isFirebaseLoaded, accessToken, spreadsheetId]);
+
+  // Auth initialization
+  useEffect(() => {
     const startAuth = async () => {
       try {
         await signInAnonymously(auth);
       } catch (error: any) {
         console.error("Firebase Auth Error:", error);
-        if (error.code === 'auth/admin-restricted-operation') {
-          showToast("សូមបើក 'Anonymous Auth' នៅក្នុង Firebase Console (Authentication > Sign-in method) ទើបអាចប្រើប្រាស់កម្មវិធីបាន។", "error");
-        } else {
-          showToast("មានបញ្ហាក្នុងការភ្ជាប់ទៅកាន់ Database: " + error.message, "error");
-        }
       }
     };
     
@@ -292,51 +490,12 @@ export default function App() {
 
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Sync Collections
-        const unsubClasses = firebaseService.syncCollection<Class>('classes', setClasses);
-        const unsubStaff = firebaseService.syncCollection<Staff>('staff', setStaffs);
-        const unsubStudents = firebaseService.syncCollection<Student>('students', setStudents);
-        const unsubUsers = firebaseService.syncCollection<AppUser>('users', setUsers);
-        const unsubSettings = firebaseService.syncSettings(setSettings);
-        
         setIsFirebaseLoaded(true);
-
-        return () => {
-          unsubClasses();
-          unsubStaff();
-          unsubStudents();
-          unsubUsers();
-          unsubSettings();
-        };
       }
     });
 
     return () => unsubAuth();
   }, []);
-
-  // Sync Attendance for current date
-  useEffect(() => {
-    if (!isFirebaseLoaded) return;
-
-    const unsubAttendance = firebaseService.syncAttendance(currentDateStr, (records) => {
-      setAttendance(prev => ({
-        ...prev,
-        [currentDateStr]: records
-      }));
-    });
-
-    const unsubStaffAttendance = firebaseService.syncStaffAttendance(currentDateStr, (records) => {
-      setStaffAttendance(prev => ({
-        ...prev,
-        [currentDateStr]: records
-      }));
-    });
-
-    return () => {
-      unsubAttendance();
-      unsubStaffAttendance();
-    };
-  }, [currentDateStr, isFirebaseLoaded]);
 
   // Migration logic (Optional but helpful)
   useEffect(() => {
@@ -473,6 +632,72 @@ export default function App() {
     }
   };
 
+  const appSaveStudent = async (student: Student) => {
+    if (accessToken && spreadsheetId) {
+      await googleSheetsService.updateItem(accessToken, spreadsheetId, 'students', student);
+      setStudents(prev => {
+        const index = prev.findIndex(s => s.id === student.id);
+        if (index >= 0) return prev.map(s => s.id === student.id ? student : s);
+        return [...prev, student];
+      });
+    } else {
+      await firebaseService.saveStudent(student);
+    }
+  };
+
+  const appDeleteStudent = async (id: string) => {
+    if (accessToken && spreadsheetId) {
+      await googleSheetsService.deleteItem(accessToken, spreadsheetId, 'students', id);
+      setStudents(prev => prev.filter(s => s.id !== id));
+    } else {
+      await firebaseService.deleteStudent(id);
+    }
+  };
+
+  const appSaveClass = async (cls: Class) => {
+    if (accessToken && spreadsheetId) {
+      await googleSheetsService.updateItem(accessToken, spreadsheetId, 'classes', cls);
+      setClasses(prev => {
+        const index = prev.findIndex(c => c.id === cls.id);
+        if (index >= 0) return prev.map(c => c.id === cls.id ? cls : c);
+        return [...prev, cls];
+      });
+    } else {
+      await firebaseService.saveClass(cls);
+    }
+  };
+
+  const appDeleteClass = async (id: string) => {
+    if (accessToken && spreadsheetId) {
+      await googleSheetsService.deleteItem(accessToken, spreadsheetId, 'classes', id);
+      setClasses(prev => prev.filter(c => c.id !== id));
+    } else {
+      await firebaseService.deleteClass(id);
+    }
+  };
+
+  const appSaveStaff = async (staff: Staff) => {
+    if (accessToken && spreadsheetId) {
+      await googleSheetsService.updateItem(accessToken, spreadsheetId, 'staff', staff);
+      setStaffs(prev => {
+        const index = prev.findIndex(s => s.id === staff.id);
+        if (index >= 0) return prev.map(s => s.id === staff.id ? staff : s);
+        return [...prev, staff];
+      });
+    } else {
+      await firebaseService.saveStaff(staff);
+    }
+  };
+
+  const appDeleteStaff = async (id: string) => {
+    if (accessToken && spreadsheetId) {
+      await googleSheetsService.deleteItem(accessToken, spreadsheetId, 'staff', id);
+      setStaffs(prev => prev.filter(s => s.id !== id));
+    } else {
+      await firebaseService.deleteStaff(id);
+    }
+  };
+
   const filteredClasses = useMemo(() => {
     if (currentUser?.role === 'admin' || currentUser?.role === 'master_admin') return classes;
     return classes.filter(c => c.teacherId === currentUser?.staffId);
@@ -535,7 +760,7 @@ export default function App() {
                       const st = staffs.find(s => s.id === u.staffId);
                       if (st && !st.deviceId) {
                         const thisDeviceId = getDeviceId();
-                        firebaseService.saveStaff({ ...st, deviceId: thisDeviceId });
+                        appSaveStaff({ ...st, deviceId: thisDeviceId });
                       }
 
                       showToast(`ស្វាគមន៍ត្រឡប់មកវិញ ${username}!`, "success");
@@ -878,6 +1103,8 @@ export default function App() {
                 sendTelegramMessage={sendTelegramMessage}
                 deleteTelegramMessage={deleteTelegramMessage}
                 showToast={showToast}
+                accessToken={accessToken}
+                spreadsheetId={spreadsheetId}
               />
             )}
 
@@ -895,6 +1122,9 @@ export default function App() {
                 sendTelegramPhoto={sendTelegramPhoto}
                 deleteTelegramMessage={deleteTelegramMessage}
                 showToast={showToast}
+                accessToken={accessToken}
+                spreadsheetId={spreadsheetId}
+                appSaveStaff={appSaveStaff}
               />
             )}
             
@@ -915,6 +1145,9 @@ export default function App() {
                 currentUser={currentUser}
                 setDeleteInfo={setDeleteInfo}
                 showToast={showToast}
+                accessToken={accessToken}
+                spreadsheetId={spreadsheetId}
+                appSaveStaff={appSaveStaff}
               />
             )}
 
@@ -923,6 +1156,15 @@ export default function App() {
                 settings={settings}
                 setSettings={setSettings}
                 showToast={showToast}
+                accessToken={accessToken}
+                handleGoogleLogin={handleGoogleLogin}
+                isSyncing={isSyncing}
+                syncToSheets={syncToSheets}
+                loadFromSheets={loadFromSheets}
+                spreadsheetId={spreadsheetId}
+                setSpreadsheetId={setSpreadsheetId}
+                initializeSpreadsheet={initializeSpreadsheet}
+                isLoggingIn={isLoggingIn}
               />
             )}
             
@@ -939,6 +1181,10 @@ export default function App() {
                 }}
                 setDeleteInfo={setDeleteInfo}
                 showToast={showToast}
+                accessToken={accessToken}
+                spreadsheetId={spreadsheetId}
+                appSaveClass={appSaveClass}
+                appDeleteClass={appDeleteClass}
               />
             )}
 
@@ -952,6 +1198,10 @@ export default function App() {
                 setIsModalOpen={setIsStudentModalOpen}
                 setDeleteInfo={setDeleteInfo}
                 showToast={showToast}
+                accessToken={accessToken}
+                spreadsheetId={spreadsheetId}
+                appSaveStudent={appSaveStudent}
+                appDeleteStudent={appDeleteStudent}
               />
             )}
 
@@ -961,6 +1211,10 @@ export default function App() {
                 setStaffs={setStaffs}
                 setDeleteInfo={setDeleteInfo}
                 showToast={showToast}
+                accessToken={accessToken}
+                spreadsheetId={spreadsheetId}
+                appSaveStaff={appSaveStaff}
+                appDeleteStaff={appDeleteStaff}
               />
             )}
 
@@ -1309,7 +1563,10 @@ function StaffAttendanceView({
   sendTelegramMessage,
   sendTelegramPhoto,
   deleteTelegramMessage,
-  showToast
+  showToast,
+  accessToken,
+  spreadsheetId,
+  appSaveStaff
 }: { 
   staffs: Staff[]; 
   setStaffs: React.Dispatch<React.SetStateAction<Staff[]>>;
@@ -1323,6 +1580,9 @@ function StaffAttendanceView({
   sendTelegramPhoto: (photoBase64: string, caption: string) => Promise<any>;
   deleteTelegramMessage: (messageId: number) => Promise<void>;
   showToast: (message: string, type: Toast['type']) => void;
+  accessToken: string | null;
+  spreadsheetId: string | null;
+  appSaveStaff: (staff: Staff) => Promise<void>;
 }) {
 
   const isToday = currentDateStr === getTodayStr();
@@ -1396,24 +1656,29 @@ function StaffAttendanceView({
       
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
           const distance = calculateDistance(
-            position.coords.latitude,
-            position.coords.longitude,
+            latitude,
+            longitude,
             settings.schoolLatitude!,
             settings.schoolLongitude!
           );
 
           const radius = settings.allowedRadius || 100;
           if (distance > radius) {
-            showToast(`អ្នកនៅឆ្ងាយពីសាលាពេក (${Math.round(distance)}m)។ ចម្ងាយអនុញ្ញាតគឺ ${radius}m`, "error");
+            showToast(`អ្នកនៅឆ្ងាយពីសាលាពេក (${Math.round(distance)}m)។ ចម្ងាយអនុញ្ញាតគឺ ${radius}m (Accuracy: ${Math.round(accuracy)}m)`, "error");
           } else {
             checkCameraRequirement(staffId, field);
           }
         },
         (error) => {
-          showToast(`មិនអាចផ្ទៀងផ្ទាត់ទីតាំងបានទេ: ${error.message}។ សូមបើក Location!`, "error");
+          let msg = "មិនអាចផ្ទៀងផ្ទាត់ទីតាំងបានទេ";
+          if (error.code === 1) msg = "សូមអនុញ្ញាត (Allow) ការប្រើទីតាំងលើ Browser";
+          if (error.code === 2) msg = "មិនអាចទាក់ទងជាមួយ GPS បានទេ";
+          if (error.code === 3) msg = "ចំណាយពេលកំណត់ផ្ទៃទីតាំងយូរពេក";
+          showToast(`${msg} (${error.message})`, "error");
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       checkCameraRequirement(staffId, field);
@@ -1479,8 +1744,8 @@ function StaffAttendanceView({
       const thisDeviceId = getDeviceId();
       const st = staffs.find(s => s.id === staffId);
       if (st && !st.deviceId) {
-        // Persist device binding to Firebase
-        firebaseService.saveStaff({ ...st, deviceId: thisDeviceId });
+        // Persist device binding
+        appSaveStaff({ ...st, deviceId: thisDeviceId });
       }
     }
 
@@ -1515,23 +1780,33 @@ function StaffAttendanceView({
       [staffId]: newStaffRecord
     }));
 
-    // Save to Firebase
-    const cleanData = JSON.parse(JSON.stringify(newStaffRecord)); // Remove undefineds
-    firebaseService.saveStaffAttendance(currentDateStr, staffId, cleanData).then(() => {
-      // Also update parent state to stay in sync
-      if (currentDateStr === currentDateStr) { // Still on same date
-        setStaffAttendance(prev => ({
-          ...prev,
-          [currentDateStr]: {
-            ...(prev[currentDateStr] || {}),
-            [staffId]: newStaffRecord
-          }
-        }));
-      }
-    }).catch(err => {
-      console.error("Firebase save error:", err);
-      showToast("បរាជ័យក្នុងការរក្សាទុកទៅកាន់ Server", "error");
-    });
+    // Save to Google Sheets (Real-time)
+    if (accessToken && spreadsheetId) {
+      const currentSheetAttendance = staffAttendance[currentDateStr] || {};
+      const updatedAttendance = { ...currentSheetAttendance, [staffId]: newStaffRecord };
+      
+      googleSheetsService.saveStaffAttendance(accessToken, spreadsheetId, currentDateStr, updatedAttendance)
+        .then(() => {
+          showToast("បានរក្សាទុកទៅ Google Sheet!", "success");
+        })
+        .catch(err => {
+          console.error("Sheets save error:", err);
+          showToast("បរាជ័យក្នុងការរក្សាទុកទៅ Google Sheet", "error");
+        });
+    } else {
+      showToast("សូមភ្ជាប់ជាមួយ Google ដើម្បីរក្សាទុកវត្តមាន!", "warning");
+    }
+
+    // Still update local parent state to stay in sync
+    if (currentDateStr === currentDateStr) { 
+      setStaffAttendance(prev => ({
+        ...prev,
+        [currentDateStr]: {
+          ...(prev[currentDateStr] || {}),
+          [staffId]: newStaffRecord
+        }
+      }));
+    }
     
     if (!isDelete) {
       const staffRef = staffs.find(s => s.id === staffId);
@@ -1884,7 +2159,9 @@ function AttendanceView({
   setSelectedClassId,
   sendTelegramMessage,
   deleteTelegramMessage,
-  showToast
+  showToast,
+  accessToken,
+  spreadsheetId
 }: { 
   students: Student[]; 
   classes: Class[];
@@ -1898,6 +2175,8 @@ function AttendanceView({
   sendTelegramMessage: (message: string) => Promise<any>;
   deleteTelegramMessage: (messageId: number) => Promise<void>;
   showToast: (message: string, type: Toast['type']) => void;
+  accessToken: string | null;
+  spreadsheetId: string | null;
 }) {
 
   const dayRecord = attendance[currentDateStr] || {};
@@ -2023,7 +2302,24 @@ function AttendanceView({
       showToast("អ្នកអាចចុះវត្តមានបានតែសម្រាប់ថ្ងៃនេះប៉ុណ្ណោះ", "warning");
       return;
     }
-    firebaseService.saveAttendance(currentDateStr, studentId, status);
+
+    // Update local state first
+    const newDayRecord = { ...dayRecord, [studentId]: status };
+    setAttendance(prev => ({
+      ...prev,
+      [currentDateStr]: newDayRecord
+    }));
+
+    // Save to Google Sheets
+    if (accessToken && spreadsheetId) {
+      googleSheetsService.saveAttendance(accessToken, spreadsheetId, currentDateStr, newDayRecord)
+        .catch(err => {
+          console.error("Sheets save error:", err);
+          showToast("បរាជ័យក្នុងការរក្សាទុកទៅ Google Sheet", "error");
+        });
+    } else {
+      showToast("សូមភ្ជាប់ជាមួយ Google ដើម្បីរក្សាទុកវត្តមាន!", "warning");
+    }
   };
 
   const markClassPresent = (studentIds: string[], className: string) => {
@@ -2031,10 +2327,30 @@ function AttendanceView({
       showToast("អ្នកអាចចុះវត្តមានបានតែសម្រាប់ថ្ងៃនេះប៉ុណ្ណោះ", "warning");
       return;
     }
+
+    const newDayRecord = { ...dayRecord };
     studentIds.forEach(id => {
-      firebaseService.saveAttendance(currentDateStr, id, 'present');
+      newDayRecord[id] = 'present';
     });
-    showToast(`បញ្ជីសិស្សទាំងអស់ក្នុងថ្នាក់ ${className} ត្រូវបានកំណត់ជា "វត្តមាន"`, 'info');
+
+    setAttendance(prev => ({
+      ...prev,
+      [currentDateStr]: newDayRecord
+    }));
+
+    // Save to Google Sheets
+    if (accessToken && spreadsheetId) {
+      googleSheetsService.saveAttendance(accessToken, spreadsheetId, currentDateStr, newDayRecord)
+        .then(() => {
+          showToast(`បញ្ជីសិស្សទាំងអស់ក្នុងថ្នាក់ ${className} ត្រូវបានរក្សាទុកទៅ Google Sheet`, 'success');
+        })
+        .catch(err => {
+          console.error("Sheets save error:", err);
+          showToast("បរាជ័យក្នុងការរក្សាទុកទៅ Google Sheet", "error");
+        });
+    } else {
+      showToast("សូមភ្ជាប់ជាមួយ Google ដើម្បីរក្សាទុកវត្តមាន!", "warning");
+    }
   };
 
   // derived stats
@@ -2530,7 +2846,11 @@ function ClassesView({
   students,
   onAddStudent,
   setDeleteInfo,
-  showToast
+  showToast,
+  accessToken,
+  spreadsheetId,
+  appSaveClass,
+  appDeleteClass
 }: { 
   classes: Class[];
   setClasses: React.Dispatch<React.SetStateAction<Class[]>>;
@@ -2539,6 +2859,10 @@ function ClassesView({
   onAddStudent: (classId: string) => void;
   setDeleteInfo: React.Dispatch<React.SetStateAction<{isOpen: boolean, message: string, onConfirm: () => void} | null>>;
   showToast: (message: string, type: Toast['type']) => void;
+  accessToken: string | null;
+  spreadsheetId: string | null;
+  appSaveClass: (cls: Class) => Promise<void>;
+  appDeleteClass: (id: string) => Promise<void>;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
@@ -2571,7 +2895,7 @@ function ClassesView({
       ? { ...editingClass, name: classNameInput.trim(), studyTime: studyTimeInput.trim(), teacherId: teacherIdInput }
       : { id: crypto.randomUUID(), name: classNameInput.trim(), studyTime: studyTimeInput.trim(), teacherId: teacherIdInput };
 
-    firebaseService.saveClass(classData);
+    appSaveClass(classData);
     setIsModalOpen(false);
   };
 
@@ -2590,7 +2914,7 @@ function ClassesView({
       isOpen: true,
       message: 'តើអ្នកប្រាកដជាចង់លុបថ្នាក់នេះមែនទេ?',
       onConfirm: () => {
-        firebaseService.deleteClass(id);
+        appDeleteClass(id);
       }
     });
   };
@@ -2724,7 +3048,11 @@ function StudentsView({
   students, setStudents,
   isModalOpen, setIsModalOpen,
   setDeleteInfo,
-  showToast
+  showToast,
+  accessToken,
+  spreadsheetId,
+  appSaveStudent,
+  appDeleteStudent
 }: { 
   classes: Class[];
   selectedClassId: string;
@@ -2734,6 +3062,10 @@ function StudentsView({
   setIsModalOpen: (open: boolean) => void;
   setDeleteInfo: React.Dispatch<React.SetStateAction<{isOpen: boolean, message: string, onConfirm: () => void} | null>>;
   showToast: (msg: string, type: Toast['type']) => void;
+  accessToken: string | null;
+  spreadsheetId: string | null;
+  appSaveStudent: (student: Student) => Promise<void>;
+  appDeleteStudent: (id: string) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [nameKhmer, setNameKhmer] = useState('');
@@ -2789,7 +3121,7 @@ function StudentsView({
       classId: selectedClassId
     };
 
-    firebaseService.saveStudent(studentData);
+    appSaveStudent(studentData);
     setIsModalOpen(false);
   };
 
@@ -2810,7 +3142,7 @@ function StudentsView({
     selectedExistingStudentIds.forEach(id => {
       const student = students.find(s => s.id === id);
       if (student) {
-        firebaseService.saveStudent({ ...student, classId: selectedClassId });
+        appSaveStudent({ ...student, classId: selectedClassId });
       }
     });
     setSelectedExistingStudentIds([]);
@@ -2830,7 +3162,7 @@ function StudentsView({
       isOpen: true,
       message: 'តើអ្នកប្រាកដជាចង់លុបសិស្សនេះមែនទេ?',
       onConfirm: () => {
-        firebaseService.deleteStudent(id);
+        appDeleteStudent(id);
       }
     });
   };
@@ -3150,12 +3482,20 @@ function StudentsView({
 
 // --- 4. Staffs View ---
 function StaffsView({ 
-  staffs, setStaffs, setDeleteInfo, showToast
+  staffs, setStaffs, setDeleteInfo, showToast,
+  accessToken,
+  spreadsheetId,
+  appSaveStaff,
+  appDeleteStaff
 }: { 
   staffs: Staff[]; 
   setStaffs: React.Dispatch<React.SetStateAction<Staff[]>>;
   setDeleteInfo: React.Dispatch<React.SetStateAction<{isOpen: boolean, message: string, onConfirm: () => void} | null>>;
   showToast: (msg: string, type: Toast['type']) => void;
+  accessToken: string | null;
+  spreadsheetId: string | null;
+  appSaveStaff: (staff: Staff) => Promise<void>;
+  appDeleteStaff: (id: string) => Promise<void>;
 }) {
   const [nameKhmer, setNameKhmer] = useState('');
   const [nameLatin, setNameLatin] = useState('');
@@ -3209,7 +3549,7 @@ function StaffsView({
       aOutTime: aOutTime.trim()
     };
 
-    firebaseService.saveStaff(staffData);
+    appSaveStaff(staffData);
     setIsModalOpen(false);
   };
 
@@ -3232,7 +3572,7 @@ function StaffsView({
       isOpen: true,
       message: 'តើអ្នកប្រាកដជាចង់លុបបុគ្គលិកនេះមែនទេ?',
       onConfirm: () => {
-        firebaseService.deleteStaff(id);
+        appDeleteStaff(id);
       }
     });
   };
@@ -3251,7 +3591,7 @@ function StaffsView({
           // Optimistic update
           setStaffs(prev => prev.map(s => s.id === staff.id ? staffWithoutDevice : s));
           
-          await firebaseService.saveStaff(staffWithoutDevice);
+          await appSaveStaff(staffWithoutDevice);
           showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
         } catch (error) {
           showToast('បរាជ័យក្នុងការ Reset ឧបករណ៍', 'error');
@@ -3451,7 +3791,33 @@ function StaffsView({
 
 
 // --- Settings View ---
-function SettingsView({ settings, setSettings, showToast }: { settings: AppSettings, setSettings: React.Dispatch<React.SetStateAction<AppSettings>>, showToast: (message: string, type: Toast['type']) => void }) {
+function SettingsView({ 
+  settings, 
+  setSettings, 
+  showToast,
+  accessToken,
+  handleGoogleLogin,
+  isSyncing,
+  syncToSheets,
+  loadFromSheets,
+  spreadsheetId,
+  setSpreadsheetId,
+  initializeSpreadsheet,
+  isLoggingIn
+}: { 
+  settings: AppSettings, 
+  setSettings: React.Dispatch<React.SetStateAction<AppSettings>>, 
+  showToast: (message: string, type: Toast['type']) => void,
+  accessToken: string | null,
+  handleGoogleLogin: () => void,
+  isSyncing: boolean,
+  syncToSheets: () => void,
+  loadFromSheets: () => void,
+  spreadsheetId: string | null,
+  setSpreadsheetId: React.Dispatch<React.SetStateAction<string | null>>,
+  initializeSpreadsheet: () => void,
+  isLoggingIn: boolean
+}) {
   const [botToken, setBotToken] = useState(settings.telegramBotToken || '');
   const [chatId, setChatId] = useState(settings.telegramChatId || '');
   const [lat, setLat] = useState(settings.schoolLatitude?.toString() || '');
@@ -3464,6 +3830,7 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
   const [isTelegramExpanded, setIsTelegramExpanded] = useState(false);
   const [isLocationExpanded, setIsLocationExpanded] = useState(false);
   const [isAntiFraudExpanded, setIsAntiFraudExpanded] = useState(false);
+  const [isGoogleSheetsExpanded, setIsGoogleSheetsExpanded] = useState(true);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -3478,19 +3845,39 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
     }
     
     try {
+      console.log('Saving settings...', {
+        botToken: trimmedToken,
+        chatId: chatId.trim(),
+        lat,
+        lng,
+        radius,
+        requirePhoto,
+        enableDeviceBinding,
+        spreadsheetId
+      });
+
+      const schoolLat = lat.trim() ? parseFloat(lat) : undefined;
+      const schoolLng = lng.trim() ? parseFloat(lng) : undefined;
+      const allowedRad = radius.trim() ? parseInt(radius) : undefined;
+
       await firebaseService.saveSettings({
         telegramBotToken: trimmedToken,
         telegramChatId: chatId.trim(),
-        schoolLatitude: lat ? parseFloat(lat) : undefined,
-        schoolLongitude: lng ? parseFloat(lng) : undefined,
-        allowedRadius: radius ? parseInt(radius) : undefined,
+        schoolLatitude: schoolLat !== undefined && !isNaN(schoolLat) ? schoolLat : undefined,
+        schoolLongitude: schoolLng !== undefined && !isNaN(schoolLng) ? schoolLng : undefined,
+        allowedRadius: allowedRad !== undefined && !isNaN(allowedRad) ? allowedRad : undefined,
         requirePhoto,
-        enableDeviceBinding
+        enableDeviceBinding,
+        spreadsheetId: spreadsheetId || undefined
       });
+      console.log('Settings saved successfully');
       showToast('រក្សាទុកបានជោគជ័យ!', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save settings:', error);
-      showToast('បរាជ័យក្នុងការរក្សាទុកទិន្នន័យ', 'error');
+      const errorCode = error.code ? ` (${error.code})` : '';
+      const uidInfo = auth.currentUser ? ` [UID: ${auth.currentUser.uid.substring(0, 5)}...]` : ' [Not Logged In]';
+      const errorMsg = error.message ? (error.message.includes('permission-denied') ? 'អ្នកមិនមានសិទ្ធិកែប្រែការកំណត់ទេ (Permission Denied)' : error.message) : 'សូមព្យាយាមម្តងទៀត';
+      showToast('បរាជ័យក្នុងការរក្សាទុក: ' + errorMsg + errorCode + uidInfo, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -3503,18 +3890,23 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
     }
 
     setIsGettingLocation(true);
+    showToast('កំពុងស្វែងរកទីតាំងដែលច្បាស់បំផុត...', 'info');
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLat(position.coords.latitude.toString());
-        setLng(position.coords.longitude.toString());
+        const { latitude, longitude, accuracy } = position.coords;
+        setLat(latitude.toString());
+        setLng(longitude.toString());
         setIsGettingLocation(false);
-        showToast('ទទួលបានទីតាំងបច្ចុប្បន្ន!', 'success');
+        showToast(`ទទួលបានទីតាំង! ច្បាស់ក្នុងរង្វង់: ${Math.round(accuracy)} ម៉ែត្រ`, 'success');
       },
       (error) => {
         setIsGettingLocation(false);
-        showToast(`មិនអាចទាញយកទីតាំងបានទេ: ${error.message}`, 'error');
+        let msg = "មិនអាចទាញយកទីតាំងបានទេ";
+        if (error.code === 1) msg = "សូមអនុញ្ញាត (Allow) ការប្រើទីតាំងលើ Browser";
+        showToast(`${msg} (${error.message})`, 'error');
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -3602,6 +3994,194 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
         <div className="p-4 sm:p-6">
           <form onSubmit={saveSettings} className="space-y-6">
             <div className="space-y-4">
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/30">
+                <button 
+                  type="button"
+                  onClick={() => setIsGoogleSheetsExpanded(!isGoogleSheetsExpanded)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors font-bold text-slate-700"
+                >
+                  <div className="flex items-center gap-2">
+                    <LayoutList size={18} className="text-green-600" />
+                    <span>Google Sheets Integration</span>
+                  </div>
+                  {isGoogleSheetsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
+
+                {isGoogleSheetsExpanded && (
+                  <div className="p-4 space-y-6 border-t border-slate-100 bg-white">
+                    {!accessToken ? (
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 text-start">
+                          <div className="bg-blue-100 p-2 rounded-lg h-fit text-blue-600">
+                            <ShieldCheck size={18} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-blue-900 text-[13px] mb-1">ភ្ជាប់ជាមួយ Google Sheets (Manage with Google Sheets)</h4>
+                            <p className="text-blue-800 text-[11px] leading-relaxed">
+                              ដើម្បីប្រើប្រាស់ Google Sheets ជា Database សូមចុចប៊ូតុងខាងក្រោមដើម្បី Login ជាមួយ Google Account របស់អ្នក។
+                            </p>
+                          </div>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-3 text-start">
+                          <div className="bg-amber-100 p-2 rounded-lg h-fit text-amber-600">
+                            <AlertCircle size={18} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-amber-900 text-[13px] mb-1">ចំណាំ (Note)</h4>
+                            <p className="text-amber-800 text-[11px] leading-relaxed">
+                              ប្រសិនបើអ្នកឃើញផ្ទាំង "Google hasn't verified this app" សូមចុច <b>"Advanced"</b> រួចចុច <b>"Go to ... (unsafe)"</b> ដើម្បីបន្ត។
+                            </p>
+                          </div>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={handleGoogleLogin}
+                          disabled={isLoggingIn}
+                          className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-3 shadow-sm disabled:opacity-50"
+                        >
+                          {isLoggingIn ? (
+                            <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-5 h-5" viewBox="0 0 48 48">
+                              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                            </svg>
+                          )}
+                          <span>{isLoggingIn ? "កំពុងភ្ជាប់..." : "Sign in with Google"}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 size={16} className="text-green-600" />
+                            <span className="text-green-700 text-sm font-bold">បានភ្ជាប់ជាមួយ Google</span>
+                          </div>
+                          <span className="text-[10px] text-green-600 font-mono">{spreadsheetId ? 'Connected' : 'Authenticated'}</span>
+                        </div>
+
+                        <div className="space-y-4">
+                          {(!spreadsheetId || spreadsheetId.trim() === '') ? (
+                            <div className="space-y-4">
+                              <p className="text-sm text-slate-600">អ្នកមិនទាន់មាន Spreadsheet សម្រាប់ផ្ទុកទិន្នន័យនៅឡើយទេ។</p>
+                              <button 
+                                type="button"
+                                onClick={initializeSpreadsheet}
+                                disabled={isSyncing}
+                                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold transition-all hover:bg-blue-700 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                              >
+                                <Plus size={18} />
+                                <span>បង្កើត Spreadsheet ថ្មី</span>
+                              </button>
+
+                              <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                  <span className="w-full border-t border-slate-200"></span>
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                  <span className="bg-white px-2 text-slate-400 font-bold">ឬ (OR)</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">បញ្ចូល Spreadsheet ID ដោយដៃ</label>
+                                <div className="flex gap-2">
+                                  <input 
+                                    type="text"
+                                    placeholder="បញ្ចូល ID ទីនេះ..."
+                                    className="flex-1 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+                                    onChange={(e) => {
+                                      const val = e.target.value.trim();
+                                      if (val.length > 20) {
+                                        setSpreadsheetId(val);
+                                        localStorage.setItem('spreadsheet_id', val);
+                                        setSettings(prev => ({ ...prev, spreadsheetId: val }));
+                                        showToast("បានភ្ជាប់ ID រួចរាល់!", "success");
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">Spreadsheet ID</label>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      setSpreadsheetId(null);
+                                      localStorage.removeItem('spreadsheet_id');
+                                      setSettings(prev => ({ ...prev, spreadsheetId: '' }));
+                                    }}
+                                    className="text-[10px] font-bold text-red-500 hover:text-red-600 flex items-center gap-1"
+                                  >
+                                    <Trash2 size={10} />
+                                    <span>លុប ID ចោល</span>
+                                  </button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <input 
+                                    value={spreadsheetId}
+                                    readOnly
+                                    className="flex-1 border border-slate-200 bg-slate-50 px-4 py-2 rounded-xl text-xs font-mono"
+                                  />
+                                  <button 
+                                    type="button"
+                                    onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${spreadsheetId}`, '_blank')}
+                                    className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600"
+                                    title="Open Sheet"
+                                  >
+                                    <FileText size={18} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pt-2">
+                              <button 
+                                type="button"
+                                onClick={syncToSheets}
+                                disabled={isSyncing}
+                                className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-blue-50 bg-blue-50/30 hover:bg-blue-50 transition-all group"
+                              >
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-2 group-hover:scale-110 transition-transform">
+                                  <Upload size={20} />
+                                </div>
+                                <span className="text-xs font-bold text-blue-700">រក្សាទុកទៅ Sheet</span>
+                                <span className="text-[9px] text-blue-500 mt-1 whitespace-nowrap">Backup to Sheet</span>
+                              </button>
+
+                              <button 
+                                type="button"
+                                onClick={loadFromSheets}
+                                disabled={isSyncing}
+                                className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-green-50 bg-green-50/30 hover:bg-green-50 transition-all group"
+                              >
+                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-2 group-hover:scale-110 transition-transform">
+                                  <Download size={20} />
+                                </div>
+                                <span className="text-xs font-bold text-green-700">ទាញយកពី Sheet</span>
+                                <span className="text-[9px] text-green-500 mt-1 whitespace-nowrap">Restore from Sheet</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {isSyncing && (
+                          <div className="flex items-center justify-center gap-2 py-2">
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-xs font-bold text-blue-600">កំពុងដំណើរការ...</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/30">
                 <button 
                   type="button"
@@ -3749,8 +4329,22 @@ function SettingsView({ settings, setSettings, showToast }: { settings: AppSetti
                         យកទីតាំងបច្ចុប្បន្ន
                       </button>
                     </div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 text-start">
+                      <div className="bg-blue-100 p-2 rounded-lg h-fit text-blue-600">
+                        <Info size={18} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-blue-900 text-[13px] mb-1">គន្លឹះសម្រាប់ការកំណត់ទីតាំង</h4>
+                        <p className="text-blue-800 text-[11px] leading-relaxed">
+                          - <b>Computer:</b> ជាទូទៅមិនមាន GPS ទេ ដូច្នេះទីតាំងអាចនឹងលំអៀងច្រើន។<br/>
+                          - <b>ការដោះស្រាយ:</b> សូមប្រើ <b>ទូរសព្ទ</b> ដើម្បីកំណត់ទីតាំងសាលា (ឈរនៅច្រកចូល ឬកន្លែងចុះឈ្មោះ) រួចចុច "យកទីតាំងបច្ចុប្បន្ន"។<br/>
+                          - ប្រសិនបើទីតាំងនៅតែលំអៀង អ្នកអាចបង្កើន <b>Radius</b> ឱ្យធំជាងមុនបន្តិច (ឧទាហរណ៍: 200m ឬ 300m)។
+                        </p>
+                      </div>
+                    </div>
+
                     <p className="text-[10px] text-slate-400 mt-2">
-                      កំណត់ទីតាំងសាលា និងចម្ងាយ (Radius) ដែលអនុញ្ញាតឱ្យបុគ្គលិកចុះវត្តមាន។
+                       កំណត់ទីតាំងសាលា និងចម្ងាយ (Radius) ដែលអនុញ្ញាតឱ្យបុគ្គលិកចុះវត្តមាន។
                     </p>
                   </div>
                 )}
@@ -4074,7 +4668,10 @@ function UserManagementView({
   setStaffs,
   currentUser,
   setDeleteInfo,
-  showToast
+  showToast,
+  accessToken,
+  spreadsheetId,
+  appSaveStaff
 }: { 
   users: AppUser[], 
   setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>, 
@@ -4082,7 +4679,10 @@ function UserManagementView({
   setStaffs: React.Dispatch<React.SetStateAction<Staff[]>>,
   currentUser: AppUser | null,
   setDeleteInfo: (info: any) => void,
-  showToast: (msg: string, type: Toast['type']) => void
+  showToast: (msg: string, type: Toast['type']) => void,
+  accessToken: string | null,
+  spreadsheetId: string | null,
+  appSaveStaff: (staff: Staff) => Promise<void>
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -4185,7 +4785,7 @@ function UserManagementView({
           // Optimistic update
           setStaffs(prev => prev.map(s => s.id === staff.id ? staffWithoutDevice : s));
           
-          await firebaseService.saveStaff(staffWithoutDevice);
+          await appSaveStaff(staffWithoutDevice);
           showToast('បាន Reset ឧបករណ៍ដោយជោគជ័យ!', 'success');
         } catch (error) {
           showToast('បរាជ័យក្នុងការ Reset ឧបករណ៍', 'error');

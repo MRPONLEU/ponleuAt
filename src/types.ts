@@ -79,6 +79,7 @@ export interface AppSettings {
   allowedRadius?: number; // in meters
   requirePhoto?: boolean;
   enableDeviceBinding?: boolean;
+  spreadsheetId?: string;
 }
 
 export interface Toast {
