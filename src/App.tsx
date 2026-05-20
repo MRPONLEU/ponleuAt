@@ -460,11 +460,25 @@ export default function App() {
     let unsubClasses = () => {};
     let unsubStaff = () => {};
     let unsubStudents = () => {};
+    let unsubAttendance = () => {};
+    let unsubStaffAttendance = () => {};
 
     if (!accessToken || !spreadsheetId) {
       unsubClasses = firebaseService.syncCollection<Class>('classes', setClasses);
       unsubStaff = firebaseService.syncCollection<Staff>('staff', setStaffs);
       unsubStudents = firebaseService.syncCollection<Student>('students', setStudents);
+      unsubAttendance = firebaseService.syncAttendance(currentDateStr, (records) => {
+        setAttendance(prev => ({
+          ...prev,
+          [currentDateStr]: records
+        }));
+      });
+      unsubStaffAttendance = firebaseService.syncStaffAttendance(currentDateStr, (records) => {
+        setStaffAttendance(prev => ({
+          ...prev,
+          [currentDateStr]: records
+        }));
+      });
     }
 
     return () => {
@@ -473,6 +487,8 @@ export default function App() {
       unsubClasses();
       unsubStaff();
       unsubStudents();
+      unsubAttendance();
+      unsubStaffAttendance();
     };
   }, [currentDateStr, isFirebaseLoaded, accessToken, spreadsheetId]);
 
@@ -1799,7 +1815,13 @@ function StaffAttendanceView({
       [staffId]: newStaffRecord
     }));
 
-    // Save to Google Sheets (Real-time)
+    // Always save to Firebase/Firestore Database
+    firebaseService.saveStaffAttendance(currentDateStr, staffId, newStaffRecord)
+      .catch(err => {
+        console.error("Firebase save staff attendance error:", err);
+      });
+
+    // Save to Google Sheets (Real-time) if connected
     if (accessToken && spreadsheetId) {
       const currentSheetAttendance = staffAttendance[currentDateStr] || {};
       const updatedAttendance = { ...currentSheetAttendance, [staffId]: newStaffRecord };
@@ -1813,7 +1835,7 @@ function StaffAttendanceView({
           showToast("បរាជ័យក្នុងការរក្សាទុកទៅ Google Sheet", "error");
         });
     } else {
-      showToast("សូមភ្ជាប់ជាមួយ Google ដើម្បីរក្សាទុកវត្តមាន!", "warning");
+      showToast("បានរក្សាទុកវត្តមានផ្ទាល់ខ្លួនទៅក្នុង database រួចរាល់!", "success");
     }
 
     // Still update local parent state to stay in sync
@@ -2345,7 +2367,13 @@ function AttendanceView({
       [currentDateStr]: newDayRecord
     }));
 
-    // Save to Google Sheets
+    // Always save to Firebase/Firestore Database
+    firebaseService.saveAttendance(currentDateStr, studentId, status)
+      .catch(err => {
+        console.error("Firebase save attendance error:", err);
+      });
+
+    // Save to Google Sheets if connected
     if (accessToken && spreadsheetId) {
       googleSheetsService.saveAttendance(accessToken, spreadsheetId, currentDateStr, newDayRecord)
         .catch(err => {
@@ -2353,7 +2381,7 @@ function AttendanceView({
           showToast("បរាជ័យក្នុងការរក្សាទុកទៅ Google Sheet", "error");
         });
     } else {
-      showToast("សូមភ្ជាប់ជាមួយ Google ដើម្បីរក្សាទុកវត្តមាន!", "warning");
+      showToast("បានរក្សាទុកវត្តមានទៅក្នុង database រួចរាល់!", "success");
     }
   };
 
@@ -2373,7 +2401,14 @@ function AttendanceView({
       [currentDateStr]: newDayRecord
     }));
 
-    // Save to Google Sheets
+    // Always save to Firebase/Firestore Database for all students
+    Promise.all(
+      studentIds.map(id => firebaseService.saveAttendance(currentDateStr, id, 'present'))
+    ).catch(err => {
+      console.error("Firebase save bulk attendance error:", err);
+    });
+
+    // Save to Google Sheets if connected
     if (accessToken && spreadsheetId) {
       googleSheetsService.saveAttendance(accessToken, spreadsheetId, currentDateStr, newDayRecord)
         .then(() => {
@@ -2384,7 +2419,7 @@ function AttendanceView({
           showToast("បរាជ័យក្នុងការរក្សាទុកទៅ Google Sheet", "error");
         });
     } else {
-      showToast("សូមភ្ជាប់ជាមួយ Google ដើម្បីរក្សាទុកវត្តមាន!", "warning");
+      showToast(`បានរក្សាទុកវត្តមានថ្នាក់ ${className} ទៅក្នុង database រួចរាល់!`, "success");
     }
   };
 
